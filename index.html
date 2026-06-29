@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intensive Offline Portal</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" defer></script>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<!-- ══════════════ AUTH ══════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-mark"><span>IO</span></div>
+      <div>
+        <h2>Intensive Offline Portal</h2>
+        <small>Assessment Administration</small>
+      </div>
+    </div>
+    <div class="tabs" style="margin-bottom:20px">
+      <button class="tab active" id="auth-tab-login-btn" onclick="switchAuthTab('login',this)">Sign In</button>
+      <button class="tab" id="auth-tab-register-btn" onclick="switchAuthTab('register',this)">Register</button>
+    </div>
+
+    <!-- SIGN IN -->
+    <div id="auth-tab-login">
+      <h1>Sign In</h1>
+      <p>Access your portal dashboard</p>
+      <div style="margin-top:20px">
+        <label>Email Address</label>
+        <input type="email" id="login-email" placeholder="admin@nxtwave.tech" />
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Enter password" />
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" id="login-btn" onclick="handleLogin()">
+          Sign In
+        </button>
+        <p id="login-error" style="color:#b91c1c;font-size:.8rem;margin-top:10px;display:none"></p>
+        <div style="display:flex;align-items:center;gap:10px;margin:18px 0 4px">
+          <div style="flex:1;height:1px;background:#e2e8f0"></div>
+          <span style="font-size:.72rem;color:#94a3b8;white-space:nowrap">or</span>
+          <div style="flex:1;height:1px;background:#e2e8f0"></div>
+        </div>
+        <button class="btn btn-outline" style="width:100%;justify-content:center;gap:8px;color:#475569" onclick="enterGuestMode()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          Continue as Guest
+        </button>
+        <p style="font-size:.7rem;color:#94a3b8;text-align:center;margin-top:8px">View-only access · No account required</p>
+      </div>
+    </div>
+
+    <!-- REGISTER (team members) -->
+    <div id="auth-tab-register" style="display:none">
+      <h1>Request Access</h1>
+      <p>Register to request access. Admin will approve your account.</p>
+      <div style="margin-top:20px">
+        <label>Full Name</label>
+        <input type="text" id="reg-name" placeholder="Your full name" />
+        <label>Email Address</label>
+        <input type="email" id="reg-email" placeholder="yourname@nxtwave.tech" />
+        <label>Team</label>
+        <select id="reg-team" style="margin-bottom:14px">
+          <option value="">Select your team</option>
+          <option value="Content Team">Content Team</option>
+          <option value="Assessment Ops Team">Assessment Ops Team</option>
+          <option value="On Ground Team">On Ground Team</option>
+          <option value="Instructor">Instructor</option>
+          <option value="Admin">Admin</option>
+        </select>
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="Min. 6 characters" />
+        <label>Confirm Password</label>
+        <input type="password" id="reg-password2" placeholder="Re-enter password" />
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" id="reg-btn" onclick="handleRegister()">
+          Request Access
+        </button>
+        <p id="reg-error" style="color:#b91c1c;font-size:.8rem;margin-top:10px;display:none"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ PENDING APPROVAL ══════════════ -->
+<div id="pending-screen" style="display:none">
+  <div class="auth-card" style="text-align:center">
+    <div class="auth-logo" style="justify-content:center;margin-bottom:20px">
+      <div class="auth-logo-mark"><span>IO</span></div>
+      <div>
+        <h2>Intensive Offline Portal</h2>
+        <small>Assessment Administration</small>
+      </div>
+    </div>
+    <div style="width:48px;height:48px;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <h1 style="font-size:1.15rem">Access Pending</h1>
+    <p id="pending-msg" style="color:#64748b;font-size:.875rem;margin-top:8px;line-height:1.6">Your account is pending admin approval. Contact your administrator.</p>
+    <button class="btn btn-outline btn-sm" style="margin-top:20px" onclick="handleLogout()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div id="app-screen" style="display:none">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark"><span>IO</span></div>
+      <div class="logo-text">
+        <h2>Intensive Offline Assessment</h2>
+        <small>Admin Portal</small>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section" id="nav-section-main">Main</div>
+      <div class="nav-item active" onclick="switchPage('dashboard')" id="nav-dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('students')" id="nav-students">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Student Data</span>
+      </div>
+      <div class="nav-section" id="nav-section-content">Content</div>
+      <div class="nav-item" onclick="switchPage('syllabus')" id="nav-syllabus">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Syllabus</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('configs')" id="nav-configs">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span>Topin Configs</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('assignments')" id="nav-assignments">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span>Assignments</span>
+      </div>
+      <div class="nav-section" id="nav-section-operations">Operations</div>
+      <div class="nav-item" onclick="switchPage('assessments')" id="nav-assessments">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        <span>Assessments</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('assessment-details')" id="nav-assessment-details">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        <span>Assessment Details</span>
+        <span id="ad-breach-badge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.64rem;margin-left:auto;font-weight:700">0</span>
+      </div>
+      <div class="nav-section" id="nav-section-teams">Teams</div>
+      <div class="nav-item" onclick="switchPage('teams')" id="nav-teams">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Teams</span>
+      </div>
+      <div class="nav-section">Help</div>
+      <div class="nav-item" onclick="switchPage('about')" id="nav-about">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>About</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-outline btn-sm btn-signout" onclick="handleLogout()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Sign Out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- GUEST BANNER -->
+    <div id="guest-banner" style="display:none;align-items:center;justify-content:space-between;gap:12px;padding:8px 20px;background:#1e293b;color:#fff;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="background:#f59e0b;color:#1e293b;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:10px">Guest View</span>
+        <span style="font-size:.8rem;color:#cbd5e1">You're browsing in read-only mode. Data is live but no changes can be made.</span>
+      </div>
+      <button class="btn btn-sm" style="background:#fff;color:#1e293b;font-size:.76rem;padding:4px 14px;flex-shrink:0" onclick="exitGuestMode()">Sign In for Full Access</button>
+    </div>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-page-icon" id="topbar-icon">⊞</span>
+        <span class="topbar-title" id="topbar-title">Dashboard</span>
+      </div>
+      <div class="topbar-right">
+        <button class="topbar-notif-btn guest-action" onclick="toggleNotifPanel()" title="Notifications">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="topbar-notif-badge" id="notif-badge" style="display:none">0</span>
+        </button>
+        <div class="topbar-user">
+          <div class="topbar-avatar" id="topbar-avatar">A</div>
+          <span class="topbar-email" id="admin-email-label">Loading...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <p>Overview of students, syllabus, configs and team activity</p>
+      </div>
+      <div class="stats-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
+        <div class="stat-card" style="cursor:pointer" onclick="switchPage('students')">
+          <div class="label">Total Students</div>
+          <div class="value" id="stat-students">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:#7c3aed;cursor:pointer" onclick="switchPage('syllabus')">
+          <div class="label">Syllabus Entries</div>
+          <div class="value" style="color:#7c3aed" id="stat-syllabus">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:#d97706;cursor:pointer" onclick="goDashPendingConfigs()">
+          <div class="label">Pending Configs</div>
+          <div class="value" style="color:#d97706" id="stat-configs-pending">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:#15803d;cursor:pointer" onclick="goDashSubmittedConfigs()">
+          <div class="label">Submitted Configs</div>
+          <div class="value" style="color:#15803d" id="stat-configs-submitted">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:#dc2626;cursor:pointer" onclick="goDashPendingApprovals()">
+          <div class="label">Pending Approvals</div>
+          <div class="value" style="color:#dc2626" id="stat-pending">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:#0891b2;cursor:pointer" onclick="switchPage('teams')">
+          <div class="label">Team Members</div>
+          <div class="value" style="color:#0891b2" id="stat-members">—</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">
+        <div class="card" style="margin:0">
+          <h3 style="margin-bottom:16px">Recent Student Uploads</h3>
+          <div id="recent-uploads-list"><div class="loading-overlay">Loading...</div></div>
+        </div>
+        <div class="card" style="margin:0">
+          <h3 style="margin-bottom:16px">Pending Configs <span id="dash-pending-configs-count" style="font-size:.8rem;font-weight:400;color:var(--muted)"></span></h3>
+          <div id="dash-pending-configs-list"><div class="loading-overlay">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENT DATA (merged with upload) -->
+    <div class="page" id="page-students">
+      <div class="page-header">
+        <h1>Student Data</h1>
+        <p>View, search and upload student records</p>
+      </div>
+
+      <!-- View table -->
+      <div class="card" style="padding-bottom:0">
+        <div class="toolbar" style="flex-wrap:wrap;row-gap:8px">
+          <input class="search-input" id="student-search" placeholder="Search UID, name, email, student ID..." oninput="filterStudents()" />
+          <select id="student-phase-filter" onchange="onStudentPhaseChange()" style="width:auto;margin-bottom:0;padding:8px 12px">
+            <option value="">Phases</option>
+          </select>
+          <select id="student-batch-filter" onchange="onStudentBatchChange()" style="width:auto;margin-bottom:0;padding:8px 12px">
+            <option value="">Batches</option>
+          </select>
+          <select id="student-week-filter" onchange="filterStudents()" style="width:auto;margin-bottom:0;padding:8px 12px">
+            <option value="">Weeks</option>
+          </select>
+          <input type="text" id="student-date-range" placeholder="Assessment date range" readonly style="width:auto;min-width:200px;margin-bottom:0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;cursor:pointer;background:#fff" />
+          <button class="btn btn-outline btn-sm" onclick="clearStudentFilters()">Clear</button>
+          <button class="btn btn-outline btn-sm" onclick="loadStudents()">Refresh</button>
+          <button class="btn btn-primary btn-sm" onclick="exportStudentsCSV()">Export CSV</button>
+
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Phase / Batch / Week</th>
+                <th>UID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Student ID</th>
+                <th>Contact No.</th>
+                <th>Uploaded</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="students-tbody">
+              <tr><td colspan="9"><div class="loading-overlay">Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="students-pagination"></div>
+      </div>
+
+      <!-- Add / Import section -->
+      <div style="margin:28px 0 14px;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center">
+        <h2 style="font-size:.95rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.05em">Add / Import Students</h2>
+      </div>
+
+      <div class="tabs" id="upload-tabs">
+        <button class="tab active" onclick="switchUploadTab('csv', this)">Upload CSV</button>
+        <button class="tab" onclick="switchUploadTab('manual', this)">Add Manually</button>
+        <button class="tab" onclick="switchUploadTab('fetch', this)">Fetch from API</button>
+      </div>
+
+      <!-- CSV TAB -->
+      <div id="upload-tab-csv">
+        <div class="card">
+          <h3>CSV Upload</h3>
+          <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">
+            Required columns: <strong>phase &bull; batch &bull; week &bull; uid &bull; name &bull; email &bull; contact_number &bull; student_id &bull; assessment_date</strong>
+          </p>
+          <div class="upload-zone" id="upload-zone"
+               onclick="document.getElementById('csv-file-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="handleFileDrop(event)">
+            <div class="upload-zone-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <p>Drag and drop your CSV file here, or <strong>click to browse</strong></p>
+            <p style="font-size:.75rem;margin-top:4px;opacity:.6">Supports .csv files only</p>
+          </div>
+          <input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="handleFileSelect(event)" />
+          <div id="csv-preview" style="display:none">
+            <div id="csv-preview-table"></div>
+            <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+              <button class="btn btn-primary" id="upload-btn" onclick="uploadCSVToFirebase()">Upload to Firebase</button>
+              <button class="btn btn-outline" onclick="clearCSVPreview()">Clear</button>
+              <span id="upload-count" style="color:var(--muted);font-size:.84rem"></span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>CSV Template</h3>
+          <p style="color:var(--muted);font-size:.84rem;margin-bottom:14px">Download a sample CSV with all columns.</p>
+          <button class="btn btn-outline btn-sm" onclick="downloadTemplate()">Download Template</button>
+        </div>
+      </div>
+
+      <!-- MANUAL TAB -->
+      <div id="upload-tab-manual" style="display:none">
+        <div class="card">
+          <h3>Add Student Manually</h3>
+          <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+            <div>
+              <label>Phase</label>
+              <select id="m-phase" onchange="onPhaseSelectChange('m-phase','m-domain-row')">
+                <option value="">— Select —</option>
+                <option value="P1">P1</option>
+                <option value="P2">P2</option>
+                <option value="P3">P3</option>
+                <option value="P4">P4</option>
+              </select>
+            </div>
+            <div>
+              <label>Batch</label>
+              <div class="pbw-input-wrap"><span class="pbw-pfx">B</span><input type="number" id="m-batch" placeholder="1" min="1" style="width:70px" /></div>
+            </div>
+            <div>
+              <label>Week</label>
+              <div class="pbw-input-wrap"><span class="pbw-pfx">W</span><input type="number" id="m-week" placeholder="1" min="1" style="width:70px" /></div>
+            </div>
+          </div>
+          <div id="m-domain-row" style="display:none;margin-bottom:16px">
+            <label>Domain</label>
+            <select id="m-domain">
+              <option value="python">Python</option>
+              <option value="java">Java</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>UID</label>
+              <input type="text" id="m-uid" placeholder="e.g. abc123xyz" />
+            </div>
+            <div>
+              <label>Student ID</label>
+              <input type="text" id="m-sid" placeholder="e.g. STU-2024-001" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Full Name</label>
+              <input type="text" id="m-name" placeholder="First Last" />
+            </div>
+            <div>
+              <label>Email</label>
+              <input type="email" id="m-email" placeholder="student@college.edu" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Contact Number</label>
+              <input type="text" id="m-phone" placeholder="e.g. 9876543210" />
+            </div>
+            <div>
+              <label>Assessment Date</label>
+              <input type="date" id="m-adate" />
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="addStudentManually()">+ Add Student</button>
+        </div>
+      </div>
+
+      <!-- FETCH FROM API TAB -->
+      <div id="upload-tab-fetch" style="display:none">
+        <div class="card">
+          <h3>Fetch from External Dashboard / API</h3>
+          <p style="color:var(--muted);font-size:.84rem;margin-bottom:20px">
+            Enter your external dashboard's REST API endpoint. The response must return JSON data.
+          </p>
+          <div class="form-row">
+            <div style="grid-column:1/-1">
+              <label>API Endpoint URL</label>
+              <input type="text" id="fetch-url" placeholder="https://your-dashboard.com/api/students" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Authorization / API Key <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(optional)</span></label>
+              <input type="text" id="fetch-apikey" placeholder="Bearer token or API key value" />
+            </div>
+            <div>
+              <label>JSON Path to Array <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(optional)</span></label>
+              <input type="text" id="fetch-path" placeholder="e.g.  data.students  or  results" />
+            </div>
+          </div>
+
+          <details style="margin-bottom:20px">
+            <summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:var(--primary);padding:8px 0;text-transform:uppercase;letter-spacing:.04em">
+              Field Mapping — if your API uses different field names
+            </summary>
+            <div style="margin-top:12px;padding:16px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+              <p style="color:var(--muted);font-size:.8rem;margin-bottom:14px">
+                Leave blank to use the default field names (uid, phase, batch, name, email, student_id, contact_number).
+              </p>
+              <div class="form-row">
+                <div><label>UID field</label><input type="text" id="map-uid" placeholder="uid" /></div>
+                <div><label>Phase field</label><input type="text" id="map-phase" placeholder="phase" /></div>
+              </div>
+              <div class="form-row">
+                <div><label>Batch field</label><input type="text" id="map-batch" placeholder="batch" /></div>
+                <div><label>Name field</label><input type="text" id="map-name" placeholder="name" /></div>
+              </div>
+              <div class="form-row">
+                <div><label>Email field</label><input type="text" id="map-email" placeholder="email" /></div>
+                <div><label>Student ID field</label><input type="text" id="map-sid" placeholder="student_id" /></div>
+              </div>
+              <div class="form-row">
+                <div><label>Contact Number field</label><input type="text" id="map-phone" placeholder="contact_number" /></div>
+                <div></div>
+              </div>
+            </div>
+          </details>
+
+          <button class="btn btn-primary" id="fetch-btn" onclick="fetchFromExternalAPI()">Fetch Data</button>
+        </div>
+
+        <div class="card" id="fetch-preview" style="display:none">
+          <h3>Preview — Fetched Data</h3>
+          <div id="fetch-preview-table"></div>
+          <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+            <button class="btn btn-success" id="fetch-save-btn" onclick="saveFetchedToFirebase()">Save to Firebase</button>
+            <button class="btn btn-outline" onclick="clearFetchPreview()">Clear</button>
+            <span id="fetch-save-count" style="color:var(--muted);font-size:.84rem"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOPIN CONFIGS -->
+    <!-- TEAMS (approvals + members merged) -->
+    <div class="page" id="page-teams">
+      <div class="page-header">
+        <h1>Teams</h1>
+        <p>Register users, manage access approvals and team memberships</p>
+      </div>
+
+      <!-- Register new user (admin action) -->
+      <div class="card">
+        <h3>Register New User</h3>
+        <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">Create an account and immediately approve access. The user can sign in with these credentials.</p>
+        <div class="form-row">
+          <div>
+            <label>Full Name</label>
+            <input type="text" id="admin-reg-name" placeholder="User's full name" />
+          </div>
+          <div>
+            <label>Email</label>
+            <input type="email" id="admin-reg-email" placeholder="user@nxtwave.tech" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Team</label>
+            <select id="admin-reg-team">
+              <option value="">Select team</option>
+              <option value="Content Team">Content Team</option>
+              <option value="Assessment Ops Team">Assessment Ops Team</option>
+              <option value="On Ground Team">On Ground Team</option>
+              <option value="Instructor">Instructor</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <div>
+            <label>Initial Password</label>
+            <input type="password" id="admin-reg-password" placeholder="Min. 6 characters" />
+          </div>
+        </div>
+        <button class="btn btn-primary" id="admin-reg-btn" onclick="adminRegisterUser()">Register &amp; Approve</button>
+      </div>
+
+      <div class="tabs" id="teams-tabs">
+        <button class="tab active" onclick="switchTeamTab('all', this)">All</button>
+        <button class="tab" onclick="switchTeamTab('pending', this)">Pending</button>
+        <button class="tab" onclick="switchTeamTab('approved', this)">Approved</button>
+        <button class="tab" onclick="switchTeamTab('rejected', this)">Rejected</button>
+      </div>
+      <div class="toolbar">
+        <input class="search-input" id="approval-search" placeholder="Search by name, email or team..." oninput="filterApprovals()" />
+        <select id="approval-team-filter" onchange="filterApprovals()" style="width:auto;margin-bottom:0;padding:8px 12px">
+          <option value="">All Teams</option>
+          <option value="Content Team">Content Team</option>
+          <option value="Assessment Ops Team">Assessment Ops Team</option>
+          <option value="On Ground Team">On Ground Team</option>
+          <option value="Instructor">Instructor</option>
+          <option value="Admin">Admin</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="loadApprovals()">Refresh</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th><th>Email</th><th>Team</th>
+                <th>Registered</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="approvals-tbody">
+              <tr><td colspan="6"><div class="loading-overlay">Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SLA Email Settings (Admin only) -->
+      <div class="card" id="sla-email-settings-card" style="margin-top:24px">
+        <h3 style="margin-bottom:4px">SLA Email Escalation Settings</h3>
+        <p style="color:var(--muted);font-size:.83rem;margin-bottom:20px">
+          Two-tier escalation via EmailJS — task owners are notified immediately on breach; managers get a separate email only if the breach remains unresolved after N hours.
+          <a href="https://www.emailjs.com" target="_blank" rel="noopener" style="color:var(--primary)">Get free EmailJS account →</a>
+        </p>
+
+        <!-- Tier label -->
+        <p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--primary);margin-bottom:10px">Tier 1 — Task Owner Breach Alert</p>
+        <div class="form-row" style="margin-bottom:16px">
+          <div>
+            <label>Service ID</label>
+            <input type="text" id="sla-emailjs-service" placeholder="service_xxxxxxx" />
+          </div>
+          <div>
+            <label>Breach Template ID <span style="font-weight:400;color:var(--muted)">(sent to task owner)</span></label>
+            <input type="text" id="sla-emailjs-template" placeholder="template_xxxxxxx" />
+          </div>
+          <div>
+            <label>Public Key</label>
+            <input type="text" id="sla-emailjs-pubkey" placeholder="xxxxxxxxxxxxxxxxxxxx" />
+          </div>
+        </div>
+
+        <!-- Tier 2 -->
+        <p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#b87a10;margin-bottom:10px">Tier 2 — Manager Escalation (if breach unresolved)</p>
+        <div class="form-row" style="margin-bottom:16px">
+          <div>
+            <label>Escalation Template ID <span style="font-weight:400;color:var(--muted)">(sent to managers)</span></label>
+            <input type="text" id="sla-emailjs-escalation-template" placeholder="template_xxxxxxx" />
+          </div>
+          <div>
+            <label>Escalate After (hours)</label>
+            <input type="number" id="sla-escalate-hours" placeholder="4" min="1" max="72" value="4" style="max-width:140px" />
+          </div>
+        </div>
+        <div style="margin-bottom:16px">
+          <label>Manager Emails <span style="font-weight:400;color:var(--muted)">(comma-separated — escalation recipients)</span></label>
+          <input type="text" id="sla-manager-emails" placeholder="manager1@org.com, manager2@org.com" />
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="saveSLAEmailSettings()">Save Settings</button>
+          <button class="btn btn-outline" onclick="testSLAEmail()">Test Breach Email</button>
+          <button class="btn btn-outline" onclick="testSLAEscalationEmail()">Test Escalation Email</button>
+          <span id="sla-email-status" style="font-size:.8rem;color:var(--muted)"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYLLABUS -->
+    <div class="page" id="page-syllabus">
+      <div class="page-header">
+        <h1>Syllabus</h1>
+        <p>Manage and update syllabus entries for each phase, batch and week</p>
+      </div>
+
+      <!-- View table -->
+      <div class="card" style="padding-bottom:0">
+        <div class="toolbar" style="flex-wrap:wrap;row-gap:8px">
+          <input class="search-input" id="syllabus-search" placeholder="Search subject, topics..." oninput="filterSyllabus()" style="min-width:160px" />
+          <select id="syllabus-phase-filter" onchange="onSyllabusPhaseChange()" style="width:auto;margin-bottom:0;padding:8px 12px">
+            <option value="">Phases</option>
+          </select>
+          <select id="syllabus-batch-filter" onchange="onSyllabusBatchChange()" style="width:auto;margin-bottom:0;padding:8px 12px">
+            <option value="">Batches</option>
+          </select>
+          <select id="syllabus-week-filter" onchange="filterSyllabus()" style="width:auto;margin-bottom:0;padding:8px 12px">
+            <option value="">Weeks</option>
+          </select>
+          <input type="text" id="syllabus-date-range" placeholder="Assessment date range" readonly style="width:auto;min-width:200px;margin-bottom:0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;cursor:pointer;background:#fff" />
+          <button class="btn btn-outline btn-sm" onclick="clearSyllabusFilters()">Clear</button>
+          <button class="btn btn-outline btn-sm" onclick="loadSyllabus()">Refresh</button>
+          <button class="btn btn-primary btn-sm" onclick="exportSyllabusCSV()">Export CSV</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Phase / Batch / Week</th>
+                <th>Subjects &amp; Topics</th><th>Assessment Type</th><th>Added</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="syllabus-tbody">
+              <tr><td colspan="6"><div class="loading-overlay">Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="syllabus-pagination"></div>
+      </div>
+
+      <!-- Add / Upload tabs -->
+      <div class="tabs" id="syllabus-upload-tabs">
+        <button class="tab active" onclick="switchSyllabusTab('manual', this)">Add Manually</button>
+        <button class="tab" onclick="switchSyllabusTab('csv', this)">Upload CSV</button>
+      </div>
+
+      <!-- MANUAL -->
+      <div id="syllabus-tab-manual">
+        <div class="card">
+          <h3>Add Syllabus Entry</h3>
+          <p style="color:var(--muted);font-size:.84rem;margin-bottom:20px">
+            Set the phase, batch and week — then add as many subjects and their topics as needed.
+          </p>
+          <div class="form-row">
+            <div>
+              <label>Phase</label>
+              <select id="sy-phase" onchange="onPhaseSelectChange('sy-phase','sy-domain-row')">
+                <option value="">— Select —</option>
+                <option value="P1">P1</option>
+                <option value="P2">P2</option>
+                <option value="P3">P3</option>
+                <option value="P4">P4</option>
+              </select>
+            </div>
+            <div>
+              <label>Batch</label>
+              <div class="pbw-input-wrap"><span class="pbw-pfx">B</span><input type="number" id="sy-batch" placeholder="1" min="1" style="width:70px" /></div>
+            </div>
+          </div>
+          <div id="sy-domain-row" style="display:none;margin-bottom:16px">
+            <label>Domain</label>
+            <select id="sy-domain">
+              <option value="python">Python</option>
+              <option value="java">Java</option>
+            </select>
+          </div>
+          <div style="margin-bottom:16px">
+            <label>Week</label>
+            <div class="pbw-input-wrap"><span class="pbw-pfx">W</span><input type="number" id="sy-week" placeholder="1" min="1" style="width:70px" /></div>
+          </div>
+          <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#4338ca;margin-bottom:10px">Main Assessment</div>
+            <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:12px">
+              <div>
+                <label>Date</label>
+                <input type="date" id="sy-adate" />
+              </div>
+              <div>
+                <label>Start Time</label>
+                <input type="time" id="sy-start-time" />
+              </div>
+              <div>
+                <label>End Time</label>
+                <input type="time" id="sy-end-time" />
+              </div>
+            </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <label>Mock Assessment</label>
+            <select id="sy-mock-assessment" onchange="toggleMockFields(this,'sy-mock-fields')">
+              <option value="">— Not specified —</option>
+              <option value="required">Required</option>
+              <option value="not_required">Not Required</option>
+            </select>
+          </div>
+          <div id="sy-mock-fields" style="display:none;background:#f8faff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:4px">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#4f46e5;margin-bottom:10px">Mock Assessment Schedule</div>
+            <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:12px">
+              <div>
+                <label>Date</label>
+                <input type="date" id="sy-mock-adate" />
+              </div>
+              <div>
+                <label>Start Time</label>
+                <input type="time" id="sy-mock-start-time" />
+              </div>
+              <div>
+                <label>End Time</label>
+                <input type="time" id="sy-mock-end-time" />
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 12px">
+            <label style="margin-bottom:0">Subjects &amp; Topics</label>
+            <button type="button" class="btn btn-outline btn-sm" onclick="addSubjectRow()">+ Add Subject</button>
+          </div>
+          <div id="sy-subjects-list"></div>
+
+          <button class="btn btn-primary" style="margin-top:4px" onclick="addSyllabusManually()">Save Entry</button>
+        </div>
+      </div>
+
+      <!-- CSV UPLOAD -->
+      <div id="syllabus-tab-csv" style="display:none">
+        <div class="card">
+          <h3>Upload Syllabus CSV</h3>
+          <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">
+            Required columns: <strong>phase &bull; batch &bull; week &bull; subjects &bull; topics &bull; assessment_date</strong>
+          </p>
+          <div class="upload-zone" id="syllabus-upload-zone"
+               onclick="document.getElementById('syllabus-csv-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="handleSyllabusFileDrop(event)">
+            <div class="upload-zone-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <p>Drag and drop your CSV file here, or <strong>click to browse</strong></p>
+            <p style="font-size:.75rem;margin-top:4px;opacity:.6">Supports .csv files only</p>
+          </div>
+          <input type="file" id="syllabus-csv-input" accept=".csv" style="display:none" onchange="handleSyllabusFileSelect(event)" />
+          <div id="syllabus-csv-preview" style="display:none">
+            <div id="syllabus-preview-table"></div>
+            <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+              <button class="btn btn-primary" id="syllabus-upload-btn" onclick="uploadSyllabusCSV()">Upload to Firebase</button>
+              <button class="btn btn-outline" onclick="clearSyllabusPreview()">Clear</button>
+              <span id="syllabus-upload-count" style="color:var(--muted);font-size:.84rem"></span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>CSV Template</h3>
+          <p style="color:var(--muted);font-size:.84rem;margin-bottom:14px">Download a sample CSV with all syllabus columns.</p>
+          <button class="btn btn-outline btn-sm" onclick="downloadSyllabusTemplate()">Download Template</button>
+        </div>
+      </div>
+
+    </div><!-- /page-syllabus -->
+
+    <!-- TOPIN CONFIGS -->
+    <div class="page" id="page-configs">
+      <div class="page-header">
+        <h1>Topin Configs</h1>
+        <p>Content Team provides topin config links for each syllabus week entry</p>
+      </div>
+
+      <div class="tabs" id="configs-tabs">
+        <button class="tab active" onclick="switchConfigTab('all', this)">All</button>
+        <button class="tab" onclick="switchConfigTab('pending', this)">Pending</button>
+        <button class="tab" onclick="switchConfigTab('submitted', this)">Submitted</button>
+      </div>
+      <div class="toolbar" style="flex-wrap:wrap;row-gap:8px">
+        <input class="search-input" id="config-search" placeholder="Search phase, batch or week..." oninput="filterConfigs()" style="min-width:160px" />
+        <select id="config-phase-filter" onchange="onConfigPhaseChange()" style="width:auto;margin-bottom:0;padding:8px 12px">
+          <option value="">Phases</option>
+        </select>
+        <select id="config-batch-filter" onchange="onConfigBatchChange()" style="width:auto;margin-bottom:0;padding:8px 12px">
+          <option value="">Batches</option>
+        </select>
+        <select id="config-week-filter" onchange="filterConfigs()" style="width:auto;margin-bottom:0;padding:8px 12px">
+          <option value="">Weeks</option>
+        </select>
+        <input type="text" id="config-date-range" placeholder="Assessment date range" readonly style="width:auto;min-width:200px;margin-bottom:0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;cursor:pointer;background:#fff" />
+        <button class="btn btn-outline btn-sm" onclick="clearConfigFilters()">Clear</button>
+        <button class="btn btn-outline btn-sm" onclick="loadConfigs()">Refresh</button>
+        <button class="btn btn-outline btn-sm" id="sync-configs-btn" onclick="syncConfigsFromSyllabus()" title="Create pending config entries for any syllabus weeks that don't have one yet">Sync from Syllabus</button>
+        <button class="btn btn-primary btn-sm" onclick="exportConfigsCSV()">Export CSV</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Phase / Batch / Week</th>
+                <th>Assessment Type</th><th>Main Config</th><th>Mock Config</th><th>Status</th><th>Updated</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="configs-tbody">
+              <tr><td colspan="8"><div class="loading-overlay">Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Add / Import Configs -->
+      <div style="margin:28px 0 14px;padding-top:8px;border-top:1px solid var(--border)">
+        <h2 style="font-size:.95rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.05em">Add / Import Configs</h2>
+      </div>
+      <div class="tabs" id="configs-input-tabs">
+        <button class="tab active" onclick="switchConfigInputTab('manual', this)">Add Manually</button>
+        <button class="tab" onclick="switchConfigInputTab('csv', this)">Upload CSV</button>
+      </div>
+
+      <!-- MANUAL TAB -->
+      <div id="config-tab-manual">
+        <div class="card">
+          <h3>Add Config Entry</h3>
+          <div class="form-row">
+            <div>
+              <label>Phase</label>
+              <select id="cf-phase" onchange="onPhaseSelectChange('cf-phase','cf-domain-row')">
+                <option value="">— Select —</option>
+                <option value="P1">P1</option>
+                <option value="P2">P2</option>
+                <option value="P3">P3</option>
+                <option value="P4">P4</option>
+              </select>
+            </div>
+            <div>
+              <label>Batch</label>
+              <div class="pbw-input-wrap"><span class="pbw-pfx">B</span><input type="number" id="cf-batch" placeholder="1" min="1" style="width:70px" /></div>
+            </div>
+          </div>
+          <div id="cf-domain-row" style="display:none;margin-bottom:12px">
+            <label>Domain</label>
+            <select id="cf-domain">
+              <option value="python">Python</option>
+              <option value="java">Java</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Week</label>
+              <div class="pbw-input-wrap"><span class="pbw-pfx">W</span><input type="number" id="cf-week" placeholder="1" min="1" style="width:70px" /></div>
+            </div>
+            <div>
+              <label>Assessment Date</label>
+              <input type="date" id="cf-adate" />
+            </div>
+          </div>
+          <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+            <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#1d4ed8;margin-bottom:8px">Main Assessment</div>
+            <label>Config Link</label>
+            <input type="url" id="cf-link" placeholder="https://..." />
+          </div>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:16px">
+            <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#15803d;margin-bottom:8px">Mock Assessment <span style="font-weight:400;text-transform:none;font-size:.72rem;color:var(--muted)">(optional — only if mock is required)</span></div>
+            <label>Config Link</label>
+            <input type="url" id="cf-mock-link" placeholder="https://..." />
+          </div>
+          <button class="btn btn-primary" onclick="addConfigManually()">Save Config</button>
+        </div>
+      </div>
+
+      <!-- CSV TAB -->
+      <div id="config-tab-csv" style="display:none">
+        <div class="card">
+          <h3>Upload Config CSV</h3>
+          <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">
+            Required columns: <strong>phase &bull; batch &bull; week &bull; config_link &bull; assessment_date</strong>
+          </p>
+          <div class="upload-zone" id="config-upload-zone"
+               onclick="document.getElementById('config-csv-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="handleConfigFileDrop(event)">
+            <div class="upload-zone-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <p>Drag and drop your CSV file here, or <strong>click to browse</strong></p>
+            <p style="font-size:.75rem;margin-top:4px;opacity:.6">Supports .csv files only</p>
+          </div>
+          <input type="file" id="config-csv-input" accept=".csv" style="display:none" onchange="handleConfigFileSelect(event)" />
+          <div id="config-csv-preview" style="display:none">
+            <div id="config-preview-table"></div>
+            <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+              <button class="btn btn-primary" id="config-upload-btn" onclick="uploadConfigsCSV()">Upload to Firebase</button>
+              <button class="btn btn-outline" onclick="clearConfigsPreview()">Clear</button>
+              <span id="config-upload-count" style="color:var(--muted);font-size:.84rem"></span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>CSV Template</h3>
+          <p style="color:var(--muted);font-size:.84rem;margin-bottom:14px">Download a sample CSV with all config columns.</p>
+          <button class="btn btn-outline btn-sm" onclick="downloadConfigTemplate()">Download Template</button>
+        </div>
+      </div>
+    </div><!-- /page-configs -->
+
+    <!-- ASSESSMENTS -->
+    <div class="page" id="page-assessments">
+      <div class="page-header">
+        <h1>Assessments</h1>
+        <p>Review submitted topin configs and publish assessments</p>
+      </div>
+
+      <!-- Quick stats -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
+        <div class="stat-card">
+          <div class="stat-label">Ready to Publish</div>
+          <div class="stat-value" id="asmnt-stat-ready">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Published</div>
+          <div class="stat-value" id="asmnt-stat-published">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Configs</div>
+          <div class="stat-value" id="asmnt-stat-total">—</div>
+        </div>
+      </div>
+
+      <div class="tabs" id="assessment-tabs">
+        <button class="tab active" onclick="switchAssessmentTab('ready',this)">Ready to Publish</button>
+        <button class="tab" onclick="switchAssessmentTab('published',this)">Published</button>
+        <button class="tab" onclick="switchAssessmentTab('all',this)">All</button>
+      </div>
+      <div class="toolbar" style="flex-wrap:wrap;row-gap:8px">
+        <input class="search-input" id="assessment-search" placeholder="Search phase, batch or week..." oninput="filterAssessments()" style="min-width:160px" />
+        <select id="assessment-phase-filter" onchange="filterAssessments()" style="width:auto;margin-bottom:0;padding:8px 12px">
+          <option value="">All Phases</option>
+        </select>
+        <select id="assessment-batch-filter" onchange="filterAssessments()" style="width:auto;margin-bottom:0;padding:8px 12px">
+          <option value="">All Batches</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="loadAssessments()">Refresh</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Phase / Batch / Week</th>
+                <th>Assessment Type</th><th>Main Config</th><th>Mock Config</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="assessments-tbody">
+              <tr><td colspan="7"><div class="loading-overlay">Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /page-assessments -->
+
+    <!-- ASSESSMENT DETAILS -->
+    <div class="page" id="page-assessment-details">
+      <div class="page-header">
+        <h1>Assessment Details</h1>
+        <p>Track assessment timelines, SLA deadlines and team progress</p>
+      </div>
+
+      <!-- SLA Breach Alert Banner -->
+      <div id="sla-breach-banner" class="breach-banner" style="display:none">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="bb-text">
+          <strong><span id="sla-breach-count">0</span> SLA Breach(es) Detected</strong>
+          <span>Escalation notifications sent to responsible team RPs. Review the SLA timeline below.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn btn-sm" style="background:#fff;color:#b91c1c;border:1.5px solid #fca5a5" onclick="setAdTab('breached')">View Breaches</button>
+          <button class="btn btn-sm guest-action" style="background:transparent;color:#7f1d1d;border:1.5px solid rgba(127,29,29,.35)" onclick="markAllBreachesRead()" title="Acknowledge all breaches — clears the badge">✓ Mark All as Read</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">
+        <div class="stat-card">
+          <div class="label">Total Assessments</div>
+          <div class="value" id="ad-total">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:var(--primary);cursor:pointer" onclick="setAdTab('upcoming')">
+          <div class="label">Upcoming</div>
+          <div class="value" style="color:var(--primary)" id="ad-upcoming">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:var(--warning);cursor:pointer" onclick="setAdTab('inprogress')">
+          <div class="label">In Progress</div>
+          <div class="value" style="color:var(--warning)" id="ad-inprogress">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:var(--success);cursor:pointer" onclick="setAdTab('completed')">
+          <div class="label">Published</div>
+          <div class="value" style="color:var(--success)" id="ad-published">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:var(--danger);cursor:pointer" onclick="setAdTab('breached')">
+          <div class="label">SLA Breaches</div>
+          <div class="value" style="color:var(--danger)" id="ad-breaches">—</div>
+        </div>
+      </div>
+
+      <!-- Tabs + Table -->
+      <div class="card" style="padding:0;overflow:hidden;margin-top:0">
+        <div class="tabs" id="ad-tabs" style="padding:0 20px;border-bottom:1px solid var(--border);margin:0;background:var(--card);border-radius:0;width:100%">
+          <button class="tab active" data-tab="all"        onclick="setAdTab('all')">All</button>
+          <button class="tab"        data-tab="upcoming"   onclick="setAdTab('upcoming')">Upcoming</button>
+          <button class="tab"        data-tab="inprogress" onclick="setAdTab('inprogress')">In Progress</button>
+          <button class="tab"        data-tab="completed"  onclick="setAdTab('completed')">Completed</button>
+          <button class="tab"        data-tab="breached"   onclick="setAdTab('breached')">Breaches</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:38px">#</th>
+                <th style="min-width:130px">Phase / Batch / Week</th>
+                <th style="min-width:120px">Assessment Date</th>
+                <th style="min-width:90px">Type</th>
+                <th style="min-width:70px;text-align:center">Students</th>
+                <th style="min-width:340px">SLA Progress</th>
+                <th style="min-width:130px;text-align:right"></th>
+              </tr>
+            </thead>
+            <tbody id="ad-tbody">
+              <tr><td colspan="7"><div class="loading-overlay">Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SLA Legend -->
+      <div style="display:flex;align-items:center;gap:16px;margin-top:14px;flex-wrap:wrap;font-size:.74rem;color:var(--muted)">
+        <span style="font-weight:600;color:var(--text-sub)">SLA Key:</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:50%;background:var(--success);display:inline-block"></span> Done on time</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:50%;background:var(--warning);display:inline-block"></span> Done late</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:50%;background:var(--danger);display:inline-block"></span> Breached (overdue)</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:50%;background:var(--border);display:inline-block"></span> Pending</span>
+        <span style="margin-left:auto;font-size:.72rem">Phase 1/3/5: Sat Weekly · Phase 2/4/6: Mon Alternate</span>
+      </div>
+    </div><!-- /page-assessment-details -->
+
+    <!-- ASSIGNMENTS -->
+    <div class="page" id="page-assignments">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1>Assignments</h1>
+          <p>On Ground Team raises requests · Content Team submits document links</p>
+        </div>
+        <div id="assign-raise-btn-wrap">
+          <button class="btn btn-primary" onclick="openRaiseRequestModal()">+ Raise Request</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding-bottom:0">
+        <div class="toolbar" style="flex-wrap:wrap;row-gap:8px">
+          <input class="search-input" id="assign-search" placeholder="Search phase, batch, week, notes..." oninput="renderAssignmentsTable()" />
+          <select id="assign-phase-filter" onchange="renderAssignmentsTable()" style="width:auto;margin:0;padding:8px 12px">
+            <option value="">All Phases</option>
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+            <option value="P4">P4</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="loadAssignments()">Refresh</button>
+        </div>
+        <div class="tabs" id="assign-tabs" style="padding:0;margin:0;border-bottom:1px solid var(--border)">
+          <button class="tab active" onclick="setAssignTab('all',this)">All</button>
+          <button class="tab" onclick="setAssignTab('pending',this)">Pending</button>
+          <button class="tab" onclick="setAssignTab('submitted',this)">Submitted</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:34px">#</th>
+                <th style="min-width:150px">Phase / Batch / Week</th>
+                <th style="min-width:80px">Mock</th>
+                <th style="min-width:200px">Subjects &amp; Topics</th>
+                <th style="min-width:90px">Status</th>
+                <th style="min-width:70px">Links</th>
+                <th style="min-width:120px;text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="assign-tbody">
+              <tr><td colspan="7"><div class="loading-overlay">Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /page-assignments -->
+
+    <!-- ABOUT -->
+    <div class="page" id="page-about">
+
+      <!-- Download bar -->
+      <div class="about-dl-bar">
+        <div>
+          <div style="font-size:1rem;font-weight:800;color:#1e293b">IOE Admin Portal — User Guide</div>
+          <div style="font-size:.74rem;color:var(--muted);margin-top:2px">NxtWave · Intensive Offline Exam Operations</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="downloadAbout('all')">&#8595; Full Guide PDF</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="role-dl-select" style="font-size:.8rem;padding:5px 10px;border-radius:6px;border:1px solid var(--border);height:32px">
+              <option value="">Role Guide...</option>
+              <option value="Admin">Admin</option>
+              <option value="On Ground Team">On Ground Team</option>
+              <option value="Content Team">Content Team</option>
+              <option value="Assessment Ops Team">Assessment Ops Team</option>
+              <option value="Instructor">Instructor</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="downloadRoleGuide()">&#8595; Download</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── WHAT IS THIS APP ── -->
+      <div class="about-sec">
+        <div class="about-sec-title">What is this app?</div>
+        <div class="about-sec-sub">NxtWave Admin — Intensive Offline Exam (IOE) Admin Portal</div>
+        <div class="card" style="margin-top:12px">
+          <p style="margin:0 0 10px;font-size:.875rem;color:#475569;line-height:1.8">
+            This is an internal operations tool for managing the complete lifecycle of <strong>Intensive Offline Exam (IOE) project assignments</strong>. It coordinates five teams — On Ground, Content, Assessment Ops, Instructors, and Admin — through two structured workflows: the <strong>Assignment Evaluation workflow</strong> (request → links → auto-allocation → evaluation → export) and the <strong>SLA Pipeline</strong> (syllabus → config → Topin go-live tracking).
+          </p>
+          <p style="margin:0 0 10px;font-size:.875rem;color:#475569;line-height:1.8">
+            Access is role-gated — an Admin must approve every new user and assign them a team role before they can use the portal. Each role sees only the pages relevant to their responsibilities.
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px">
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:10px 12px">
+              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px">Frontend</div>
+              <div style="font-size:.84rem;font-weight:600;color:#1e293b">Pure HTML / CSS / JS</div>
+              <div style="font-size:.74rem;color:#64748b">ES modules via CDN, no build step</div>
+            </div>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:10px 12px">
+              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px">Database</div>
+              <div style="font-size:.84rem;font-weight:600;color:#1e293b">Firebase Firestore</div>
+              <div style="font-size:.74rem;color:#64748b">Google Auth · real-time sync</div>
+            </div>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:10px 12px">
+              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px">Deployment</div>
+              <div style="font-size:.84rem;font-weight:600;color:#1e293b">Vercel (static)</div>
+              <div style="font-size:.74rem;color:#64748b">No server required</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── HOW IT WORKS ── -->
+      <div class="about-sec">
+        <div class="about-sec-title">How it works</div>
+        <div class="about-sec-sub">Two parallel workflows managed through this portal.</div>
+
+        <!-- Workflow A -->
+        <div style="margin-top:14px;margin-bottom:18px">
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7c3aed;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:14px;background:#7c3aed;border-radius:2px"></span>Workflow A — Assignment Evaluation</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="about-step"><div class="about-step-n" style="background:#7c3aed">1</div><div class="about-step-body"><div class="about-step-title">Raise Assignment Request <span class="about-step-who">On Ground Team</span></div><p class="about-step-desc">Specifies Phase, Batch, Week, number of sets, subjects/topics, and whether a Mock assignment is needed. Notifies Content Team.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#15803d">2</div><div class="about-step-body"><div class="about-step-title">Submit Assignment Links <span class="about-step-who">Content Team</span></div><p class="about-step-desc">Uploads one assignment question document link per set (Set 1, Set 2, …). Submitting triggers automatic student set allocation.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#0369a1">3</div><div class="about-step-body"><div class="about-step-title">Auto Set Allocation <span class="about-step-who">System (automatic)</span></div><p class="about-step-desc">Students in that Phase+Batch are sorted by UID and distributed round-robin across sets. On Ground Team can immediately download the allocation CSV.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#a16207">4</div><div class="about-step-body"><div class="about-step-title">Import Student Submissions <span class="about-step-who">Assessment Ops Team</span></div><p class="about-step-desc">Students submit GitHub and Deployment links via Google Form. Ops imports the CSV — links matched by Candidate UID are saved to each student's record.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#b91c1c">5</div><div class="about-step-body"><div class="about-step-title">Evaluate Students <span class="about-step-who">Instructor</span></div><p class="about-step-desc">Instructor opens each student's scoring form — 10 criteria across 4 sections on a 0–5 scale. Part averages, total (/20), and performance band are auto-calculated. Predefined remark chips speed up feedback.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#475569">6</div><div class="about-step-body"><div class="about-step-title">Export Evaluation CSV <span class="about-step-who">Instructor · Admin</span></div><p class="about-step-desc">Download the complete evaluation CSV — 26 columns matching the Google Sheet format including all criterion scores, averages, total, performance band, and remarks.</p></div></div>
+          </div>
+        </div>
+
+        <!-- Workflow B -->
+        <div>
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#1d4ed8;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:14px;background:#1d4ed8;border-radius:2px"></span>Workflow B — Topin Assessment Publishing &amp; Evaluation</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="about-step"><div class="about-step-n" style="background:#15803d">1</div><div class="about-step-body"><div class="about-step-title">Submit Syllabus <span class="about-step-who">On Ground Team</span></div><p class="about-step-desc">Phase, Batch, Week, assessment date, start/end time, subjects, topics, and Mock required flag. Starts the SLA clock. Go to <strong>Syllabus</strong> page.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#a16207">2</div><div class="about-step-body"><div class="about-step-title">Submit Mock Config Link <span class="about-step-who">Content Team</span></div><p class="about-step-desc">Topin config URL for the Mock assessment. Go to <strong>Topin Configs</strong> page. Skipped if Mock not required.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#0369a1">3</div><div class="about-step-body"><div class="about-step-title">Publish Mock &amp; Mark Live <span class="about-step-who">Assessment Ops Team</span></div><p class="about-step-desc">Publish the Mock assessment on Topin, then click <strong>Mark Mock Live</strong> on the Assessments page. Timestamps the SLA step. Skipped if Mock not required.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#7c3aed">4</div><div class="about-step-body"><div class="about-step-title">Students Take Mock Assessment <span class="about-step-who">Students (on assessment date)</span></div><p class="about-step-desc">Students complete the Mock on Topin. On Ground Team monitors attendance. Results are available on Topin for review. Skipped if Mock not required.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#a16207">5</div><div class="about-step-body"><div class="about-step-title">Submit Main Config Link <span class="about-step-who">Content Team</span></div><p class="about-step-desc">Topin config URL for the Main assessment. Go to <strong>Topin Configs</strong> page. Submitted after the Mock assessment is complete.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#0369a1">6</div><div class="about-step-body"><div class="about-step-title">Publish Main &amp; Mark Live <span class="about-step-who">Assessment Ops Team</span></div><p class="about-step-desc">Publish the Main assessment on Topin, then click <strong>Mark Main Live</strong>. Missed deadline turns the step red on Assessment Details and triggers a breach notification.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#b91c1c">7</div><div class="about-step-body"><div class="about-step-title">Students Take Main Assessment <span class="about-step-who">Students (on assessment date)</span></div><p class="about-step-desc">Students complete the Main assessment on Topin within the scheduled window (start/end time from Syllabus). On Ground Team monitors.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#475569">8</div><div class="about-step-body"><div class="about-step-title">Review Results &amp; Acknowledge Breaches <span class="about-step-who">Admin · Assessment Ops Team</span></div><p class="about-step-desc">Assessment results are available on Topin for review. On <strong>Assessment Details</strong>, acknowledge any SLA breaches with "Mark as Read" to clear the red alert. Full pipeline status (green / amber / red per step) is preserved for reporting.</p></div></div>
+          </div>
+          <div class="about-note" style="margin-top:10px">Steps 2, 3, and 4 (Mock) are skipped when "Mock Required" is unchecked in the Syllabus. Without Mock the pipeline is: Syllabus → Main Config → Main Live → Students Take Main → Review Results.</div>
+        </div>
+      </div>
+
+      <!-- ── PAGE BY PAGE GUIDE ── -->
+      <div class="about-sec">
+        <div class="about-sec-title">Page-by-page guide</div>
+        <div class="about-sec-sub">What each page does and how to use it.</div>
+
+        <!-- Dashboard -->
+        <div class="about-pg-card">
+          <div class="about-pg-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="about-pg-title">Dashboard</span>
+              <span class="about-pg-badge">All roles</span>
+            </div>
+            <code class="about-pg-tag">dashboard</code>
+          </div>
+          <p class="about-pg-desc">Your landing page. Live KPI cards let every team member see the health of operations at a glance — no digging required.</p>
+          <div class="about-2col">
+            <div class="about-feat"><div class="about-feat-title">KPI Cards</div><p>Total students enrolled, active assignments, unread notifications, and pending approval count. Numbers update in real time from Firestore.</p></div>
+            <div class="about-feat"><div class="about-feat-title">Quick Navigation</div><p>Shortcut buttons to the most common actions for your role, so daily tasks take fewer clicks.</p></div>
+          </div>
+        </div>
+
+        <!-- Assessment Details -->
+        <div class="about-pg-card">
+          <div class="about-pg-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="about-pg-title">Assessment Details</span>
+              <span class="about-pg-badge">All roles</span>
+            </div>
+            <code class="about-pg-tag">assessment-details</code>
+          </div>
+          <p class="about-pg-desc">The SLA control room. Shows the full 5-step pipeline status for every assessment — who did what and whether they hit the deadline.</p>
+          <div class="about-2col">
+            <div class="about-feat"><div class="about-feat-title">Pipeline Steps</div><p>Syllabus → Mock Config → Mock Live → Main Config → Main Live. Each step shows: <span style="color:#16a34a;font-weight:600">green</span> (on time), <span style="color:#d97706;font-weight:600">amber</span> (late), <span style="color:#dc2626;font-weight:600">red</span> (breach — deadline missed), grey (pending).</p></div>
+            <div class="about-feat"><div class="about-feat-title">Breach Tracking</div><p>Rows with active SLA breaches are highlighted. Acknowledge with "Mark as Read" to clear the alert. Filter by All / Active / Breached. Breaches also generate in-app notifications.</p></div>
+          </div>
+          <div class="about-note">Mock steps (2 and 3) only appear when the syllabus has "Mock Required" checked. Without mock, only 3 steps are shown.</div>
+        </div>
+
+        <!-- Assignments -->
+        <div class="about-pg-card">
+          <div class="about-pg-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="about-pg-title">Assignments</span>
+              <span class="about-pg-badge" style="background:#ede9fe;color:#7c3aed;border-color:#c4b5fd">On Ground · Content · Ops · Instructor · Admin</span>
+            </div>
+            <code class="about-pg-tag">assignments</code>
+          </div>
+          <p class="about-pg-desc">The assignment management hub. All teams see the same table — but different action buttons appear based on your role.</p>
+          <div class="about-2col">
+            <div class="about-feat"><div class="about-feat-title" style="color:#15803d">On Ground Team</div><ul class="about-feat-list"><li>Click <strong>Raise Request</strong> to create an assignment — fill Phase, Batch, Week, sets, subjects, and Mock flag</li><li>Once Content Team submits links, status shows "X students allocated" in green</li><li>Click <strong>Download CSV</strong> to get the set allocation sheet (Name, UID, Email, Set, Link) ready to share with students</li></ul></div>
+            <div class="about-feat"><div class="about-feat-title" style="color:#a16207">Content Team</div><ul class="about-feat-list"><li>You receive a notification when a request is raised</li><li>Rows with "Pending Links" status need your action</li><li>Click <strong>Submit Links</strong> — add one document link per set</li><li>Submitting auto-triggers student allocation and notifies On Ground Team + Instructor</li></ul></div>
+            <div class="about-feat"><div class="about-feat-title" style="color:#0369a1">Assessment Ops Team</div><ul class="about-feat-list"><li>Click the link count badge to view submitted assignment links</li><li>In the Evaluate modal, click <strong>Import Submissions CSV</strong> to upload Google Form responses</li><li>CSV is matched by Candidate UID — GitHub + Deployment links are saved per student automatically</li></ul></div>
+            <div class="about-feat"><div class="about-feat-title" style="color:#7c3aed">Instructor</div><ul class="about-feat-list"><li><strong>Evaluate (X/Y)</strong> button shows evaluated vs total students</li><li>Click it to open the student list — see each student's links and current score</li><li>Click <strong>Evaluate</strong> on any student to open the scoring form</li><li>After all students, click <strong>Export Eval CSV</strong> to download the Google Sheet–compatible file</li></ul></div>
+          </div>
+          <div style="margin-top:12px">
+            <div class="about-feat-title" style="margin-bottom:8px">Assignments table columns</div>
+            <table class="about-tbl">
+              <thead><tr><th>Column</th><th>What it shows</th></tr></thead>
+              <tbody>
+                <tr><td>Phase · Batch · Week</td><td>Who the assignment is for</td></tr>
+                <tr><td>Subjects</td><td>Number of subjects tagged. Click the count to expand the list</td></tr>
+                <tr><td>Requested</td><td>Date the request was raised</td></tr>
+                <tr><td>Links</td><td>Number of question links submitted. Click to open View Links modal with copy/open options per link</td></tr>
+                <tr><td>Status</td><td>Pending Links → Links Submitted → Allocated (X students)</td></tr>
+                <tr><td>Actions</td><td>Role-dependent: Submit Links / View Links / Download CSV / Evaluate</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Student Data -->
+        <div class="about-pg-card">
+          <div class="about-pg-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="about-pg-title">Student Data</span>
+              <span class="about-pg-badge" style="background:#dcfce7;color:#15803d;border-color:#bbf7d0">On Ground Team · Admin</span>
+            </div>
+            <code class="about-pg-tag">students</code>
+          </div>
+          <p class="about-pg-desc">The student roster for each Phase, Batch, and Week. This is the source of truth for set allocation — when assignment links are submitted, the portal pulls students from here to distribute across sets.</p>
+          <div class="about-2col">
+            <div class="about-feat"><div class="about-feat-title">Add Students</div><p>Upload via Excel file or add individually. Required fields: Name, UID, Student ID, Email, Phase, Batch. P3 and P4 batches also need a Domain (Python / Java).</p></div>
+            <div class="about-feat"><div class="about-feat-title">Search &amp; Filter</div><p>Filter the table by Phase, Batch, and Week. Student count shown in the Dashboard stat card. Used as the source for round-robin set allocation when assignment links are submitted.</p></div>
+          </div>
+          <div class="about-note">Student data must be uploaded before assignment links are submitted — allocation queries this collection. If students are missing, the allocation count will be lower than expected.</div>
+        </div>
+
+        <!-- Syllabus -->
+        <div class="about-pg-card">
+          <div class="about-pg-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="about-pg-title">Syllabus</span>
+              <span class="about-pg-badge" style="background:#dcfce7;color:#15803d;border-color:#bbf7d0">On Ground Team · Content Team · Admin</span>
+            </div>
+            <code class="about-pg-tag">syllabus</code>
+          </div>
+          <p class="about-pg-desc">The starting point of the SLA pipeline. On Ground Team submits the weekly syllabus for each Phase/Batch/Week. Every assessment on Topin begins here — submitting a syllabus starts the SLA clock.</p>
+          <div class="about-2col">
+            <div class="about-feat"><div class="about-feat-title">Add Syllabus</div><p>Fill in Phase, Batch, Week, subjects and topics, assessment date, start/end time, and whether a Mock assessment is required. The Mock flag controls whether the 5-step or 3-step SLA pipeline is shown.</p></div>
+            <div class="about-feat"><div class="about-feat-title">SLA Clock Starts Here</div><p>The moment a syllabus is submitted, the SLA timer begins. Content Team is expected to submit config links within the configured SLA window. Editing an existing syllabus updates the downstream records.</p></div>
+          </div>
+          <div class="about-note"><strong>Important:</strong> If "Mock Required" is checked, Assessment Details will show 5 steps (Syllabus → Mock Config → Mock Live → Main Config → Main Live). If unchecked, only 3 steps are shown (Syllabus → Main Config → Main Live).</div>
+        </div>
+
+        <!-- Topin Configs -->
+        <div class="about-pg-card">
+          <div class="about-pg-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="about-pg-title">Topin Configs</span>
+              <span class="about-pg-badge" style="background:#fef9c3;color:#a16207;border-color:#fde68a">Content Team · Admin</span>
+            </div>
+            <code class="about-pg-tag">configs</code>
+          </div>
+          <p class="about-pg-desc">Content Team submits the Topin assessment configuration URLs after reviewing the syllabus. These links are used by Assessment Ops to publish the assessments on the Topin platform.</p>
+          <div class="about-2col">
+            <div class="about-feat"><div class="about-feat-title">Mock &amp; Main Config Links</div><p>Each syllabus entry gets two config links — one for Mock and one for Main. Content Team submits them separately. Each submission records a timestamp for SLA tracking.</p></div>
+            <div class="about-feat"><div class="about-feat-title">Linked to Syllabus</div><p>Each config entry is linked to a specific Phase/Batch/Week syllabus. Submitting a config link advances the SLA pipeline from Step 1 to Step 2 (Mock) or Step 4 (Main) in Assessment Details.</p></div>
+          </div>
+          <div class="about-note">Config links must be submitted before Assessment Ops can mark the assessment as Live. If a config link is missing for a syllabus, Assessment Details will show that step as pending or breached.</div>
+        </div>
+
+        <!-- Assessments -->
+        <div class="about-pg-card">
+          <div class="about-pg-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="about-pg-title">Assessments</span>
+              <span class="about-pg-badge" style="background:#e0f2fe;color:#0369a1;border-color:#bae6fd">Assessment Ops Team · Admin</span>
+            </div>
+            <code class="about-pg-tag">assessments</code>
+          </div>
+          <p class="about-pg-desc">Assessment Ops marks each Topin assessment as Live and tracks the complete publish-and-evaluate lifecycle. Mock and Main go-live events are tracked separately with timestamps for SLA compliance.</p>
+          <div class="about-2col">
+            <div class="about-feat"><div class="about-feat-title">Mark Mock / Main Live</div><p>Click <strong>Mark Mock Live</strong> or <strong>Mark Main Live</strong> once published on Topin. Timestamp recorded immediately — SLA step on Assessment Details turns green (on time) or amber (late).</p></div>
+            <div class="about-feat"><div class="about-feat-title">Pending Assessments View</div><p>All assessments awaiting go-live are listed here, sorted by date. Missed deadlines appear as red breach rows and trigger notifications to all roles.</p></div>
+            <div class="about-feat"><div class="about-feat-title">Post-Live: Students Take Assessment</div><p>Once marked Live, students complete the assessment on Topin within the scheduled window (date + start/end time from Syllabus). On Ground Team monitors attendance on the day.</p></div>
+            <div class="about-feat"><div class="about-feat-title">Review Results on Topin</div><p>After students complete the assessment, results and scores are available directly on the Topin platform. Go to Assessment Details in this portal to acknowledge any SLA breaches with "Mark as Read" to close the alert.</p></div>
+          </div>
+          <div class="about-note">Always mark Live here immediately after publishing on Topin — the SLA breach timer runs from the moment the config link was submitted. Delayed marking inflates breach counts on Assessment Details.</div>
+        </div>
+
+        <!-- Teams -->
+        <div class="about-pg-card">
+          <div class="about-pg-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="about-pg-title">Teams</span>
+              <span class="about-pg-badge" style="background:#fee2e2;color:#b91c1c;border-color:#fca5a5">Admin only (management)</span>
+            </div>
+            <code class="about-pg-tag">teams</code>
+          </div>
+          <p class="about-pg-desc">User lifecycle management. Every new user who registers appears here as Pending until an Admin approves them and assigns a role.</p>
+          <div class="about-2col">
+            <div class="about-feat"><div class="about-feat-title">Pending Approvals</div><p>New sign-ups land here. Admin selects a role from the dropdown then clicks Approve. <strong>Reject</strong> blocks access but keeps the record (reversible). <strong>Delete</strong> permanently removes the user record.</p></div>
+            <div class="about-feat"><div class="about-feat-title">All Members</div><p>Full table of active team members. Click <strong>Edit</strong> to update name or role. Role changes take effect immediately — the member sees updated page access on their next interaction.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── EVALUATION SCORING ── -->
+      <div class="about-sec">
+        <div class="about-sec-title">Evaluation Scoring System</div>
+        <div class="about-sec-sub">How the 10-criterion form works and how totals are calculated.</div>
+        <div class="card" style="margin-top:12px">
+          <p style="font-size:.82rem;color:#475569;margin:0 0 14px">Each criterion is scored <strong>0 – 5</strong> using the score picker buttons. Part averages and the total update live. Maximum total is <strong>20 + up to 5 bonus</strong>.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div style="border:1px solid #c4b5fd;border-radius:7px"><div style="background:#7c3aed;color:#fff;padding:6px 12px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:6px 6px 0 0">Part 1 — Design &amp; UI Implementation <span style="opacity:.7">(avg /5)</span></div><ul style="margin:0;padding:8px 12px 10px 24px;font-size:.8rem;color:#334155;line-height:2"><li>Layout &amp; visual consistency</li><li>Component styling &amp; consistency</li><li>Responsiveness (all screen sizes)</li></ul></div>
+            <div style="border:1px solid #86efac;border-radius:7px"><div style="background:#15803d;color:#fff;padding:6px 12px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:6px 6px 0 0">Part 2 — Functional Correctness <span style="opacity:.7">(avg /5)</span></div><ul style="margin:0;padding:8px 12px 10px 24px;font-size:.8rem;color:#334155;line-height:2"><li>Core feature completion</li><li>Interactive behavior (navigation, forms, controls, scroll, etc.)</li><li>Dynamic content handling (search/filter/pagination where applicable)</li></ul></div>
+            <div style="border:1px solid #fde68a;border-radius:7px"><div style="background:#a16207;color:#fff;padding:6px 12px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:6px 6px 0 0">Part 3 — Data Handling &amp; State Management <span style="opacity:.7">(score /5)</span></div><ul style="margin:0;padding:8px 12px 10px 24px;font-size:.8rem;color:#334155;line-height:2"><li>Data Handling &amp; State Management</li></ul></div>
+            <div style="border:1px solid #fca5a5;border-radius:7px"><div style="background:#b91c1c;color:#fff;padding:6px 12px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:6px 6px 0 0">Part 4 — Code Quality &amp; Delivery <span style="opacity:.7">(avg /5)</span></div><ul style="margin:0;padding:8px 12px 10px 24px;font-size:.8rem;color:#334155;line-height:2"><li>Component structure &amp; maintainability</li><li>Readability &amp; best practices</li><li>Submission quality (working build, repo, README, no errors)</li></ul></div>
+          </div>
+          <div style="font-size:.74rem;color:#475569;margin-bottom:10px;font-weight:600">Total = Part1 Avg + Part2 Avg + Part3 Score + Part4 Avg + Bonus — Performance Bands:</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px">
+            <div style="background:#166534;border-radius:6px;padding:8px;text-align:center"><div style="font-size:.68rem;color:#86efac;margin-bottom:2px">≥ 17</div><div style="font-size:.72rem;font-weight:700;color:#fff">Exceptional</div><div style="font-size:.6rem;color:#bbf7d0;margin-top:2px">Strong Hire</div></div>
+            <div style="background:#15803d;border-radius:6px;padding:8px;text-align:center"><div style="font-size:.68rem;color:#bbf7d0;margin-bottom:2px">≥ 14</div><div style="font-size:.72rem;font-weight:700;color:#fff">Strong</div><div style="font-size:.6rem;color:#dcfce7;margin-top:2px">Hire</div></div>
+            <div style="background:#a16207;border-radius:6px;padding:8px;text-align:center"><div style="font-size:.68rem;color:#fde68a;margin-bottom:2px">≥ 11</div><div style="font-size:.72rem;font-weight:700;color:#fff">Competent</div><div style="font-size:.6rem;color:#fef9c3;margin-top:2px">Hire w/ Reservations</div></div>
+            <div style="background:#b45309;border-radius:6px;padding:8px;text-align:center"><div style="font-size:.68rem;color:#fcd34d;margin-bottom:2px">≥ 8</div><div style="font-size:.72rem;font-weight:700;color:#fff">Borderline</div><div style="font-size:.6rem;color:#fef3c7;margin-top:2px">Conditional Hire</div></div>
+            <div style="background:#b91c1c;border-radius:6px;padding:8px;text-align:center"><div style="font-size:.68rem;color:#fca5a5;margin-bottom:2px">&lt; 8</div><div style="font-size:.72rem;font-weight:700;color:#fff">Below Exp.</div><div style="font-size:.6rem;color:#fee2e2;margin-top:2px">Do Not Hire</div></div>
+          </div>
+          <table class="about-tbl">
+            <thead><tr><th>Score</th><th>Label</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>Not implemented / broken</td><td>Feature absent or completely non-functional</td></tr>
+              <tr><td>1</td><td>Very weak</td><td>Attempted but significantly incomplete or broken</td></tr>
+              <tr><td>2</td><td>Partially correct</td><td>Some aspects work, major gaps remain</td></tr>
+              <tr><td>3</td><td>Meets minimum expectations</td><td>Functional at basic level, room for improvement</td></tr>
+              <tr><td>4</td><td>Strong implementation</td><td>Well done, minor issues if any</td></tr>
+              <tr><td>5</td><td>Excellent / production-ready</td><td>Outstanding quality, no significant issues</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ROLES & ACCESS TABLE ── -->
+      <div class="about-sec">
+        <div class="about-sec-title">Team Roles &amp; Access</div>
+        <div class="about-sec-sub">What each role can see and do.</div>
+        <div class="card" style="margin-top:12px;padding:0">
+          <table class="about-tbl" style="margin:0">
+            <thead><tr><th>Role</th><th>Pages</th><th>Primary responsibility</th></tr></thead>
+            <tbody>
+              <tr><td><span class="about-role-tag" style="background:#fee2e2;color:#b91c1c;border-color:#fca5a5">Admin</span></td><td>All pages</td><td>Oversight, team approvals, data export, full CRUD access</td></tr>
+              <tr><td><span class="about-role-tag" style="background:#dcfce7;color:#15803d;border-color:#bbf7d0">On Ground Team</span></td><td>Dashboard, Assessment Details, Assignments</td><td>Raise assignment requests, download allocation CSV, share with students</td></tr>
+              <tr><td><span class="about-role-tag" style="background:#fef9c3;color:#a16207;border-color:#fde68a">Content Team</span></td><td>Dashboard, Assessment Details, Assignments</td><td>Submit assignment question document links for each set</td></tr>
+              <tr><td><span class="about-role-tag" style="background:#e0f2fe;color:#0369a1;border-color:#bae6fd">Assessment Ops Team</span></td><td>Dashboard, Assessment Details, Assignments</td><td>Import student submission CSVs (GitHub + Deployment links)</td></tr>
+              <tr><td><span class="about-role-tag" style="background:#ede9fe;color:#7c3aed;border-color:#c4b5fd">Instructor</span></td><td>Dashboard, Assessment Details, Assignments</td><td>Evaluate students using the scoring form, export evaluation CSV</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── KEY CONCEPTS ── -->
+      <div class="about-sec">
+        <div class="about-sec-title">Key Concepts</div>
+        <div class="about-sec-sub">Terms and logic you'll encounter throughout the portal.</div>
+        <div class="about-2col" style="margin-top:12px">
+          <div class="about-feat"><div class="about-feat-title">Phase / Batch / Week</div><p>Three-level grouping for students. Phase is the program level (P1–P4). Batch is the cohort within a phase. Week is the assignment cycle. Together they identify which students receive a specific assignment.</p></div>
+          <div class="about-feat"><div class="about-feat-title">Set Allocation (Round-Robin)</div><p>Students sorted by UID are distributed cyclically across sets: student 1 → Set 1, student 2 → Set 2, … student N+1 → Set 1 again. Triggered automatically the moment Content Team submits links. Ensures even distribution.</p></div>
+          <div class="about-feat"><div class="about-feat-title">SLA Pipeline</div><p>Five-step (or three-step without Mock) workflow for Topin assessment publishing. Each step has a configured deadline. Missing a deadline triggers a red breach notification visible to all roles on Assessment Details.</p></div>
+          <div class="about-feat"><div class="about-feat-title">Performance Band</div><p>Auto-calculated from total score: ≥17 Exceptional (Strong Hire) · ≥14 Strong (Hire) · ≥11 Competent (Hire with Reservations) · ≥8 Borderline (Conditional) · &lt;8 Significantly Below (Do Not Hire).</p></div>
+          <div class="about-feat"><div class="about-feat-title">Notifications</div><p>Bell icon in the top bar shows unread count. Triggers: assignment request raised → notifies Content Team + Admin. Links submitted → notifies On Ground Team + Ops + Instructor + Admin. Notification panel shows timestamp and context.</p></div>
+          <div class="about-feat"><div class="about-feat-title">Evaluation CSV Export</div><p>26-column format matching the Google Sheet exactly: 8 Assignment Detail columns, 4×Part1, 4×Part2, 2×Part3, 4×Part4, Bonus, Total, Performance Band, Remarks. Scores exported as "N : Label" (e.g., "4 : Strong implementation").</p></div>
+        </div>
+      </div>
+
+      <!-- ── ROLE-SPECIFIC GUIDES (hidden in normal view, shown in role-filtered print) ── -->
+      <div class="role-guide" data-role="Admin" id="rg-Admin">
+        <div class="rg-header" style="background:#1e293b">
+          <div class="rg-label">Role Guide</div>
+          <div class="rg-name">Admin</div>
+          <div class="rg-sub">Full access to all pages and settings</div>
+        </div>
+        <div class="card">
+          <h3 class="rg-sec">Pages you can access</h3>
+          <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Student Data · Syllabus · Topin Configs · Assignments · Assessments · Assessment Details · Teams · About</p>
+          <h3 class="rg-sec">Your responsibilities</h3>
+          <ul class="rg-list">
+            <li>Go to <strong>Teams</strong> to approve or reject new user registrations — always assign a role before approving</li>
+            <li>Monitor <strong>Assessment Details</strong> for SLA breaches across all pipeline steps</li>
+            <li>On <strong>Assignments</strong>: full visibility of all requests, submitted links, allocation status, and evaluation progress</li>
+            <li>Download <strong>Allocation CSV</strong> (to share with students) or <strong>Evaluation CSV</strong> (for reporting)</li>
+            <li>Import student submission CSVs if Assessment Ops is unavailable</li>
+            <li>On <strong>Student Data</strong>: upload or manage student roster for any Phase/Batch</li>
+            <li>On <strong>Syllabus</strong>: view, add, or edit any syllabus entry and its SLA status</li>
+            <li>On <strong>Assessments</strong>: mark Mock/Main Live for any session if Assessment Ops is unavailable</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="role-guide" data-role="On Ground Team" id="rg-OG">
+        <div class="rg-header" style="background:#166534">
+          <div class="rg-label">Role Guide</div>
+          <div class="rg-name">On Ground Team</div>
+          <div class="rg-sub">Syllabus submission · Assignment requests · Set allocation download</div>
+        </div>
+        <div class="card">
+          <h3 class="rg-sec">Pages you can access</h3>
+          <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Student Data · Syllabus · Assignments · Assessment Details · About</p>
+          <h3 class="rg-sec">SLA workflow — your steps</h3>
+          <ol class="rg-list rg-ol">
+            <li>Go to <strong>Student Data</strong> and upload the student roster for your Phase/Batch before the assessment week</li>
+            <li>Go to <strong>Syllabus</strong> and click <strong>Add Syllabus</strong> — fill Phase, Batch, Week, subjects/topics, assessment date, start/end time, and check "Mock Required" if applicable. This starts the SLA clock</li>
+            <li>Check <strong>Assessment Details</strong> to track SLA status — green steps are on time, red means a breach</li>
+          </ol>
+          <h3 class="rg-sec" style="margin-top:14px">Assignment workflow — your steps</h3>
+          <ol class="rg-list rg-ol">
+            <li>Go to <strong>Assignments</strong> and click <strong>Raise Request</strong> — fill Phase, Batch, Week, number of sets, subjects/topics, and Mock flag</li>
+            <li>Content Team will be notified. Status shows "Pending Links" until they respond</li>
+            <li>Once Content Team submits links, status updates to "X students allocated" — students have been auto-assigned to sets</li>
+            <li>Click <strong>Download CSV</strong> to get the allocation sheet: Student Name, UID, Student ID, Email, Allocated Set, Assignment Link</li>
+            <li>Share assignment links with students via WebEngage or directly</li>
+          </ol>
+          <div class="about-note" style="margin-top:12px"><strong>Tip:</strong> Student data must be uploaded before assignment links are submitted — the system pulls students from that page for set allocation.</div>
+        </div>
+      </div>
+
+      <div class="role-guide" data-role="Content Team" id="rg-CT">
+        <div class="rg-header" style="background:#a16207">
+          <div class="rg-label">Role Guide</div>
+          <div class="rg-name">Content Team</div>
+          <div class="rg-sub">Config link submission · Assignment question link submission</div>
+        </div>
+        <div class="card">
+          <h3 class="rg-sec">Pages you can access</h3>
+          <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Syllabus (view) · Topin Configs · Assignments · Assessment Details · About</p>
+          <h3 class="rg-sec">SLA workflow — your steps</h3>
+          <ol class="rg-list rg-ol">
+            <li>Once On Ground Team submits a syllabus, go to <strong>Topin Configs</strong></li>
+            <li>Find the Phase/Batch/Week entry and click <strong>Add Config</strong></li>
+            <li>Submit the Mock Config URL first (if Mock Required), then the Main Config URL — each submission timestamps the SLA pipeline step</li>
+            <li>Check <strong>Assessment Details</strong> to confirm the steps turned green</li>
+          </ol>
+          <h3 class="rg-sec" style="margin-top:14px">Assignment workflow — your steps</h3>
+          <ol class="rg-list rg-ol">
+            <li>You receive a notification when On Ground Team raises an assignment request</li>
+            <li>Go to <strong>Assignments</strong> — rows with status "Pending Links" need your action</li>
+            <li>Click <strong>Submit Links</strong> — enter a label and URL for each set (e.g., Set 1 → Google Doc link)</li>
+            <li>Click <strong>Save Links</strong> — this triggers student set allocation automatically and notifies On Ground Team, Assessment Ops, and Instructors</li>
+          </ol>
+          <div class="about-note" style="margin-top:12px"><strong>Important:</strong> Submit config links as soon as possible after the syllabus is received — the SLA breach timer is running from the moment the syllabus was submitted.</div>
+        </div>
+      </div>
+
+      <div class="role-guide" data-role="Assessment Ops Team" id="rg-AO">
+        <div class="rg-header" style="background:#0369a1">
+          <div class="rg-label">Role Guide</div>
+          <div class="rg-name">Assessment Ops Team</div>
+          <div class="rg-sub">Mark assessments live · Import student submissions</div>
+        </div>
+        <div class="card">
+          <h3 class="rg-sec">Pages you can access</h3>
+          <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Assessments · Assignments · Assessment Details · About</p>
+          <h3 class="rg-sec">SLA workflow — your steps</h3>
+          <ol class="rg-list rg-ol">
+            <li>Once Content Team submits config links, go to <strong>Assessments</strong></li>
+            <li>Find the row for the relevant Phase/Batch/Week</li>
+            <li>Publish the assessment on Topin, then come back and click <strong>Mark Mock Live</strong> (if Mock Required) and/or <strong>Mark Main Live</strong></li>
+            <li>The SLA pipeline on <strong>Assessment Details</strong> will update to green — or amber if you're submitting after the deadline</li>
+          </ol>
+          <h3 class="rg-sec" style="margin-top:14px">Assignment workflow — your steps</h3>
+          <ol class="rg-list rg-ol">
+            <li>Once students submit GitHub and Deployment links via Google Form, download the form responses as a CSV</li>
+            <li>Go to <strong>Assignments</strong> and click <strong>Evaluate (X/Y)</strong> on the relevant row</li>
+            <li>In the student list modal, click <strong>Import Submissions CSV</strong></li>
+            <li>Select the downloaded CSV — links matched by Candidate UID are saved automatically</li>
+          </ol>
+          <div class="about-note" style="margin-top:12px"><strong>CSV columns the importer looks for:</strong> "Candidate UID" (or "uid"), "Deployment Link" (or "deploy"), "GitHub Link" (or "git"). Case-insensitive, partial matches work.</div>
+        </div>
+      </div>
+
+      <div class="role-guide" data-role="Instructor" id="rg-IN">
+        <div class="rg-header" style="background:#7c3aed">
+          <div class="rg-label">Role Guide</div>
+          <div class="rg-name">Instructor</div>
+          <div class="rg-sub">Student evaluation · CSV export</div>
+        </div>
+        <div class="card">
+          <h3 class="rg-sec">Pages you can access</h3>
+          <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Assignments · Assessment Details · About</p>
+          <h3 class="rg-sec">Your step-by-step workflow</h3>
+          <ol class="rg-list rg-ol">
+            <li>You receive a notification when assignment links are submitted and students are allocated</li>
+            <li>Go to <strong>Assignments</strong> — rows show <strong>Evaluate (X/Y)</strong> where X = evaluated so far, Y = total allocated</li>
+            <li>Click <strong>Evaluate</strong> to open the student list — each row shows Name, UID, Set, submission links (Deploy ↗ / Git ↗), and current score if already evaluated</li>
+            <li>Click <strong>Evaluate</strong> on any student to open the scoring form. The <strong>Assignment Details</strong> card at the top shows Batch, Week, Set, and the Question Link for reference</li>
+            <li>Verify the student's Deployment and GitHub links are pre-filled (imported by Ops). Update them if missing</li>
+            <li>Score each of the 10 criteria using the 0–5 buttons — part averages, total (/20), and performance band update in real time</li>
+            <li>Click remark chips to quickly add common observations, or type custom remarks in the text box</li>
+            <li>Click <strong>Save Evaluation</strong> — the score and band appear in the student list immediately</li>
+            <li>Repeat for all students. Click <strong>Export Eval CSV</strong> to download the complete evaluation in Google Sheet format (26 columns)</li>
+          </ol>
+          <div class="about-note" style="margin-top:12px"><strong>All 10 criteria must be scored before saving.</strong> Score guide: 0 = Broken · 1 = Very weak · 2 = Partial · 3 = Minimum · 4 = Strong · 5 = Excellent. The score legend is also shown at the top of the scoring form.</div>
+        </div>
+      </div>
+
+    </div><!-- /page-about -->
+
+  </main>
+</div>
+
+<!-- EDIT MEMBER MODAL -->
+<div class="modal-backdrop" id="edit-member-modal">
+  <div class="modal" style="max-width:440px">
+    <h3>Edit Member</h3>
+    <div id="edit-member-meta" style="font-size:.8rem;color:var(--muted);margin-bottom:16px"></div>
+    <label>Full Name</label>
+    <input type="text" id="edit-member-name" placeholder="Full name" />
+    <label>Team</label>
+    <select id="edit-member-team" style="margin-bottom:4px">
+      <option value="Admin">Admin</option>
+      <option value="Content Team">Content Team</option>
+      <option value="Assessment Ops Team">Assessment Ops Team</option>
+      <option value="On Ground Team">On Ground Team</option>
+      <option value="Instructor">Instructor</option>
+    </select>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('edit-member-modal')">Cancel</button>
+      <button class="btn btn-primary" id="edit-member-save-btn" onclick="saveEditMember()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal-backdrop" id="delete-modal">
+  <div class="modal">
+    <h3>Confirm Deletion</h3>
+    <p id="delete-modal-msg" style="color:var(--muted);font-size:.875rem">Are you sure you want to delete this record?</p>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('delete-modal')">Cancel</button>
+      <button class="btn btn-danger" id="delete-confirm-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT SYLLABUS MODAL -->
+<div class="modal-backdrop" id="edit-syllabus-modal">
+  <div class="modal" style="max-width:620px;width:95%;max-height:90vh;display:flex;flex-direction:column;padding:0">
+    <!-- sticky header -->
+    <div style="flex-shrink:0;padding:18px 24px 10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <h3 style="margin:0;font-size:1rem">Edit Syllabus Entry</h3>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('edit-syllabus-modal')" style="padding:2px 10px">&#x2715;</button>
+      </div>
+      <div id="edit-syllabus-meta" style="font-size:.78rem;color:var(--muted)"></div>
+    </div>
+    <!-- scrollable body -->
+    <div style="flex:1;overflow-y:auto;padding:0 24px 8px;min-height:0">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label style="font-size:.75rem;margin-bottom:3px">Phase</label>
+          <select id="edit-sy-phase" style="margin:0;padding:6px 10px;font-size:.84rem" onchange="onPhaseSelectChange('edit-sy-phase','edit-sy-domain-row')">
+            <option value="">— Select —</option>
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+            <option value="P4">P4</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.75rem;margin-bottom:3px">Batch</label>
+          <div class="pbw-input-wrap"><span class="pbw-pfx">B</span><input type="number" id="edit-sy-batch" min="1" placeholder="1" style="margin:0;padding:6px 8px;font-size:.84rem;border:none;width:50px" /></div>
+        </div>
+        <div>
+          <label style="font-size:.75rem;margin-bottom:3px">Week</label>
+          <div class="pbw-input-wrap"><span class="pbw-pfx">W</span><input type="number" id="edit-sy-week" min="1" placeholder="1" style="margin:0;padding:6px 8px;font-size:.84rem;border:none;width:50px" /></div>
+        </div>
+      </div>
+      <div id="edit-sy-domain-row" style="display:none;margin-bottom:8px">
+        <label style="font-size:.75rem;margin-bottom:3px">Domain</label>
+        <select id="edit-sy-domain" style="margin:0;padding:6px 10px;font-size:.84rem">
+          <option value="python">Python</option>
+          <option value="java">Java</option>
+        </select>
+      </div>
+      <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#4338ca;margin-bottom:8px">Main Assessment</div>
+        <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:.75rem;margin-bottom:3px">Date</label>
+            <input type="date" id="edit-sy-adate" style="margin:0;padding:6px 10px;font-size:.84rem" />
+          </div>
+          <div><label style="font-size:.75rem;margin-bottom:3px">Start Time</label><input type="time" id="edit-sy-start-time" style="margin:0;padding:6px 10px;font-size:.84rem" /></div>
+          <div><label style="font-size:.75rem;margin-bottom:3px">End Time</label><input type="time" id="edit-sy-end-time" style="margin:0;padding:6px 10px;font-size:.84rem" /></div>
+        </div>
+      </div>
+      <div style="margin-bottom:8px">
+        <label style="font-size:.75rem;margin-bottom:3px">Mock Assessment</label>
+        <select id="edit-sy-mock-assessment" style="margin:0;padding:6px 10px;font-size:.84rem" onchange="toggleMockFields(this,'edit-sy-mock-fields')">
+          <option value="">— Not specified —</option>
+          <option value="required">Required</option>
+          <option value="not_required">Not Required</option>
+        </select>
+      </div>
+      <div id="edit-sy-mock-fields" style="display:none;background:#f8faff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#4f46e5;margin-bottom:8px">Mock Assessment Schedule</div>
+        <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:.75rem;margin-bottom:3px">Date</label>
+            <input type="date" id="edit-sy-mock-adate" style="margin:0;padding:6px 10px;font-size:.84rem" />
+          </div>
+          <div><label style="font-size:.75rem;margin-bottom:3px">Start Time</label><input type="time" id="edit-sy-mock-start-time" style="margin:0;padding:6px 10px;font-size:.84rem" /></div>
+          <div><label style="font-size:.75rem;margin-bottom:3px">End Time</label><input type="time" id="edit-sy-mock-end-time" style="margin:0;padding:6px 10px;font-size:.84rem" /></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <label style="margin:0;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Subjects &amp; Topics</label>
+        <button type="button" class="btn btn-outline btn-sm" onclick="addEditSubjectRow()" style="padding:3px 10px;font-size:.75rem">+ Add Subject</button>
+      </div>
+      <div id="edit-sy-subjects-list" style="display:flex;flex-direction:column;gap:8px;padding-bottom:4px"></div>
+    </div>
+    <!-- sticky footer -->
+    <div style="flex-shrink:0;display:flex;justify-content:flex-end;gap:8px;padding:12px 24px;border-top:1px solid var(--border)">
+      <button class="btn btn-outline" onclick="closeModal('edit-syllabus-modal')">Cancel</button>
+      <button class="btn btn-primary" id="edit-syllabus-save-btn" onclick="saveEditSyllabus()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIG LINK MODAL -->
+<div class="modal-backdrop" id="config-modal">
+  <div class="modal">
+    <h3 id="config-modal-title">Add Config Link</h3>
+    <div id="config-modal-meta" style="color:var(--muted);font-size:.85rem;margin-bottom:16px;line-height:1.8"></div>
+    <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#1d4ed8;margin-bottom:8px">Main Assessment</div>
+      <label>Config Link</label>
+      <input type="text" id="config-link-input" placeholder="https://..." />
+    </div>
+    <div id="cm-mock-link-wrap" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px">
+      <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#15803d;margin-bottom:8px">Mock Assessment</div>
+      <label>Config Link</label>
+      <input type="text" id="mock-config-link-input" placeholder="https://..." />
+    </div>
+    <div class="modal-footer" style="margin-top:16px">
+      <button class="btn btn-outline" onclick="closeModal('config-modal')">Cancel</button>
+      <button class="btn btn-primary" id="config-submit-btn" onclick="submitConfigLink()">Save Links</button>
+    </div>
+  </div>
+</div>
+
+<!-- RAISE ASSIGNMENT REQUEST MODAL -->
+<div class="modal-backdrop" id="raise-request-modal">
+  <div class="modal" style="max-width:500px;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <!-- sticky header -->
+    <div style="padding:22px 24px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h3 style="margin:0 0 4px">Raise Assignment Request</h3>
+      <p style="color:var(--muted);font-size:.82rem;margin:0">Notify Content Team to prepare assignment documents for this batch.</p>
+    </div>
+
+    <!-- scrollable body -->
+    <div style="flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+
+      <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;gap:10px;margin:0">
+        <div>
+          <label style="font-size:.75rem;margin-bottom:4px">Phase</label>
+          <select id="rr-phase" onchange="onPhaseSelectChange('rr-phase','rr-domain-row')" style="margin:0;padding:7px 10px;font-size:.84rem">
+            <option value="">— Select —</option>
+            <option value="P1">P1</option><option value="P2">P2</option>
+            <option value="P3">P3</option><option value="P4">P4</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.75rem;margin-bottom:4px">Batch</label>
+          <div class="pbw-input-wrap"><span class="pbw-pfx">B</span><input type="number" id="rr-batch" min="1" placeholder="1" style="width:54px;margin:0;padding:7px 6px;font-size:.84rem;border:none" /></div>
+        </div>
+        <div>
+          <label style="font-size:.75rem;margin-bottom:4px">Week</label>
+          <div class="pbw-input-wrap"><span class="pbw-pfx">W</span><input type="number" id="rr-week" min="1" placeholder="1" style="width:54px;margin:0;padding:7px 6px;font-size:.84rem;border:none" /></div>
+        </div>
+      </div>
+
+      <div id="rr-domain-row" style="display:none">
+        <label style="font-size:.75rem;margin-bottom:4px">Domain</label>
+        <select id="rr-domain" style="margin:0;padding:7px 10px;font-size:.84rem">
+          <option value="python">Python</option>
+          <option value="java">Java</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-size:.75rem;margin-bottom:4px">Mock Assignment Required?</label>
+        <select id="rr-mock" style="margin:0;padding:7px 10px;font-size:.84rem">
+          <option value="">— Select —</option>
+          <option value="yes">Yes — Mock assignment needed</option>
+          <option value="no">No — Main assignment only</option>
+        </select>
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label style="margin:0;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Subjects &amp; Topics</label>
+          <button type="button" class="btn btn-outline btn-sm" onclick="addRRSubjectRow()" style="padding:3px 10px;font-size:.75rem">+ Add Subject</button>
+        </div>
+        <div id="rr-subjects-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+
+    </div>
+
+    <!-- sticky footer -->
+    <div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button class="btn btn-outline" onclick="closeModal('raise-request-modal')">Cancel</button>
+      <button class="btn btn-primary" id="rr-save-btn" onclick="saveAssignmentRequest()">Raise Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUBMIT LINKS MODAL -->
+<div class="modal-backdrop" id="submit-links-modal">
+  <div class="modal" style="max-width:600px">
+    <h3 id="sl-title">Submit Assignment Links</h3>
+    <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">Add one or more document links. Use clear labels so On Ground Team knows which set is which.</p>
+
+    <div id="sl-links-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+
+    <button class="btn btn-outline btn-sm" onclick="addLinkRow()" style="margin-bottom:16px">+ Add Another Link</button>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeModal('submit-links-modal')">Cancel</button>
+      <button class="btn btn-primary" id="sl-save-btn" onclick="saveAssignmentLinks()">Save Links</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW LINKS MODAL -->
+<div class="modal-backdrop" id="view-links-modal">
+  <div class="modal" style="max-width:620px;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div style="padding:20px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h3 id="vl-title" style="margin:0">Assignment Links</h3>
+    </div>
+    <div id="vl-links-list" style="flex:1;overflow-y:auto;padding:16px 24px"></div>
+    <div style="padding:12px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0">
+      <button class="btn btn-outline" onclick="closeModal('view-links-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVALUATION LIST MODAL -->
+<div class="modal-backdrop" id="eval-list-modal">
+  <div class="modal" style="max-width:860px;max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div style="padding:20px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+      <div>
+        <h3 id="el-title" style="margin:0 0 2px">Evaluation</h3>
+        <p id="el-sub" style="margin:0;font-size:.8rem;color:var(--muted)"></p>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-outline btn-sm guest-action" onclick="importSubmissionsCSV()" title="Upload Google Form responses CSV to auto-fill GitHub &amp; Deployment links">↑ Import Links CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadEvalCSV()">↓ Export Eval CSV</button>
+        <input type="file" id="submissions-csv-input" accept=".csv" style="display:none" onchange="handleSubmissionsCSV(event)" />
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <table class="data-table" style="margin:0;border-radius:0">
+        <thead>
+          <tr>
+            <th style="width:32px">#</th>
+            <th style="min-width:130px">Student Name</th>
+            <th style="min-width:80px">UID</th>
+            <th style="min-width:60px">Set</th>
+            <th style="min-width:70px">Links</th>
+            <th style="min-width:55px">Score</th>
+            <th style="min-width:140px">Band</th>
+            <th style="text-align:right;min-width:90px">Action</th>
+          </tr>
+        </thead>
+        <tbody id="el-tbody"></tbody>
+      </table>
+    </div>
+    <div style="padding:12px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <span id="el-progress" style="font-size:.82rem;color:var(--muted)"></span>
+      <button class="btn btn-outline" onclick="closeModal('eval-list-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVALUATION STUDENT MODAL -->
+<div class="modal-backdrop" id="eval-student-modal">
+  <div class="modal" style="max-width:600px;max-height:94vh;display:flex;flex-direction:column;padding:0">
+    <!-- Header -->
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h3 id="es-title" style="margin:0 0 2px;font-size:1.05rem">Evaluate Student</h3>
+      <p id="es-sub" style="margin:0;font-size:.76rem;color:var(--muted)"></p>
+    </div>
+
+    <!-- Scrollable body -->
+    <div style="flex:1;overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:10px">
+
+      <!-- Score legend -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px">
+        <span class="es-leg" style="background:#fee2e2;color:#991b1b">0 — Broken</span>
+        <span class="es-leg" style="background:#fef3c7;color:#92400e">1 — Very weak</span>
+        <span class="es-leg" style="background:#fef9c3;color:#854d0e">2 — Partial</span>
+        <span class="es-leg" style="background:#e0f2fe;color:#0369a1">3 — Minimum</span>
+        <span class="es-leg" style="background:#dcfce7;color:#166534">4 — Strong</span>
+        <span class="es-leg" style="background:#ede9fe;color:#6d28d9">5 — Excellent</span>
+      </div>
+
+      <!-- Assignment details (JS populated) -->
+      <div id="es-assign-info" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px"></div>
+
+      <!-- Submission links -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label class="es-lbl">Deployment Link</label>
+          <input type="url" id="es-deploy" placeholder="https://..." style="font-size:.82rem" />
+        </div>
+        <div>
+          <label class="es-lbl">GitHub Link</label>
+          <input type="url" id="es-github" placeholder="https://github.com/..." style="font-size:.82rem" />
+        </div>
+      </div>
+
+      <!-- PART 1 -->
+      <div class="es-section" style="--sec-color:#7c3aed;--sec-border:#c4b5fd;--sec-bg:#7c3aed">
+        <div class="es-sec-hdr">Design &amp; UI Implementation</div>
+        <div class="es-sec-body">
+          <div class="es-crit">
+            <span class="es-crit-label">Layout &amp; visual consistency</span>
+            <div class="sp" data-id="es-layout" data-color="#7c3aed">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-layout" value="" />
+            </div>
+          </div>
+          <div class="es-crit">
+            <span class="es-crit-label">Component styling &amp; consistency</span>
+            <div class="sp" data-id="es-styling" data-color="#7c3aed">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-styling" value="" />
+            </div>
+          </div>
+          <div class="es-crit">
+            <span class="es-crit-label">Responsiveness (all screen sizes)</span>
+            <div class="sp" data-id="es-responsive" data-color="#7c3aed">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-responsive" value="" />
+            </div>
+          </div>
+        </div>
+        <div class="es-sec-avg">Part 1 Avg: <strong id="es-p1avg" style="color:#7c3aed">—</strong></div>
+      </div>
+
+      <!-- PART 2 -->
+      <div class="es-section" style="--sec-color:#15803d;--sec-border:#86efac;--sec-bg:#15803d">
+        <div class="es-sec-hdr">Functional Correctness</div>
+        <div class="es-sec-body">
+          <div class="es-crit">
+            <span class="es-crit-label">Core feature completion</span>
+            <div class="sp" data-id="es-core" data-color="#15803d">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-core" value="" />
+            </div>
+          </div>
+          <div class="es-crit">
+            <span class="es-crit-label">Interactive behavior <span style="font-weight:400;color:var(--muted)">(navigation, forms, controls, scroll, etc.)</span></span>
+            <div class="sp" data-id="es-interactive" data-color="#15803d">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-interactive" value="" />
+            </div>
+          </div>
+          <div class="es-crit">
+            <span class="es-crit-label">Dynamic content handling <span style="font-weight:400;color:var(--muted)">(search/filter/pagination where applicable)</span></span>
+            <div class="sp" data-id="es-dynamic" data-color="#15803d">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-dynamic" value="" />
+            </div>
+          </div>
+        </div>
+        <div class="es-sec-avg">Part 2 Avg: <strong id="es-p2avg" style="color:#15803d">—</strong></div>
+      </div>
+
+      <!-- PART 3 -->
+      <div class="es-section" style="--sec-color:#a16207;--sec-border:#fde68a;--sec-bg:#a16207">
+        <div class="es-sec-hdr">Data Handling &amp; State Management</div>
+        <div class="es-sec-body">
+          <div class="es-crit">
+            <span class="es-crit-label">Data Handling &amp; State Management</span>
+            <div class="sp" data-id="es-data" data-color="#a16207">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-data" value="" />
+            </div>
+          </div>
+        </div>
+        <div class="es-sec-avg">Part 3 Score: <strong id="es-p3score" style="color:#a16207">—</strong></div>
+      </div>
+
+      <!-- PART 4 -->
+      <div class="es-section" style="--sec-color:#b91c1c;--sec-border:#fca5a5;--sec-bg:#b91c1c">
+        <div class="es-sec-hdr">Code Quality &amp; Delivery</div>
+        <div class="es-sec-body">
+          <div class="es-crit">
+            <span class="es-crit-label">Component structure &amp; maintainability</span>
+            <div class="sp" data-id="es-component" data-color="#b91c1c">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-component" value="" />
+            </div>
+          </div>
+          <div class="es-crit">
+            <span class="es-crit-label">Readability &amp; best practices</span>
+            <div class="sp" data-id="es-readability" data-color="#b91c1c">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-readability" value="" />
+            </div>
+          </div>
+          <div class="es-crit">
+            <span class="es-crit-label">Submission quality <span style="font-weight:400;color:var(--muted)">(working build, repo, README, no errors)</span></span>
+            <div class="sp" data-id="es-submission" data-color="#b91c1c">
+              <button type="button" class="sp-btn" data-val="0">0</button><button type="button" class="sp-btn" data-val="1">1</button><button type="button" class="sp-btn" data-val="2">2</button><button type="button" class="sp-btn" data-val="3">3</button><button type="button" class="sp-btn" data-val="4">4</button><button type="button" class="sp-btn" data-val="5">5</button>
+              <input type="hidden" id="es-submission" value="" />
+            </div>
+          </div>
+        </div>
+        <div class="es-sec-avg">Part 4 Avg: <strong id="es-p4avg" style="color:#b91c1c">—</strong></div>
+      </div>
+
+      <!-- BONUS -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#1e293b;border-radius:8px">
+        <span style="font-size:.8rem;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.04em">Bonus Features</span>
+        <div class="sp" data-id="es-bonus" data-color="#6366f1" style="gap:5px">
+          <button type="button" class="sp-btn" data-val="0" style="background:#334155;border-color:#475569;color:#cbd5e1">0</button>
+          <button type="button" class="sp-btn" data-val="1" style="background:#334155;border-color:#475569;color:#cbd5e1">1</button>
+          <button type="button" class="sp-btn" data-val="2" style="background:#334155;border-color:#475569;color:#cbd5e1">2</button>
+          <button type="button" class="sp-btn" data-val="3" style="background:#334155;border-color:#475569;color:#cbd5e1">3</button>
+          <button type="button" class="sp-btn" data-val="4" style="background:#334155;border-color:#475569;color:#cbd5e1">4</button>
+          <button type="button" class="sp-btn" data-val="5" style="background:#334155;border-color:#475569;color:#cbd5e1">5</button>
+          <input type="hidden" id="es-bonus" value="0" />
+        </div>
+      </div>
+
+      <!-- TOTAL & BAND -->
+      <div style="background:#0f172a;border-radius:8px;padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center">
+        <div>
+          <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:4px">Total (/20)</div>
+          <div id="es-total" style="font-size:1.9rem;font-weight:800;color:#fff;line-height:1">—</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:4px">Performance Band</div>
+          <div id="es-band" style="font-size:.76rem;font-weight:600;color:#e2e8f0;line-height:1.5">—</div>
+        </div>
+      </div>
+
+      <!-- REMARKS -->
+      <div>
+        <label class="es-lbl" style="margin-bottom:6px;display:block">Remarks</label>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
+          <button type="button" class="remark-chip" onclick="addRemark('All features implemented.')">✓ All features implemented</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Good code structure, readability, responsive.')">✓ Code structure &amp; responsive</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Not fully implemented as per the given question.')">Not fully implemented</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Functionalities are good but UI can be improved.')">Functionality good, UI weak</button>
+          <button type="button" class="remark-chip" onclick="addRemark('UI is good but functionalities and state management has some issues.')">UI good, functionality issues</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Not responsive on mobile and tablet screens.')">Not responsive</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Layout consistency not up to the mark.')">Layout inconsistent</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Submission quality poor.')">Submission quality poor</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Code readability not as expected.')">Code readability poor</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Data handling to be improved.')">Data handling poor</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Using dummy/static data instead of dynamic data.')">Dummy data used</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Deployed link not working / no access.')">Deployed link broken</button>
+          <button type="button" class="remark-chip" onclick="addRemark('No deployment link provided.')">No deployment link</button>
+          <button type="button" class="remark-chip" onclick="addRemark('No GitHub link provided.')">No GitHub link</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Invalid / broken GitHub link.')">Invalid GitHub link</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Possible AI usage in parts.')">Possible AI usage</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Used ChatGPT / AI tool completely.')">Used AI/GPT fully</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Rejected — built assignment using Lovable / AI tool.')">Built with Lovable</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Output built by Claude / AI.')">Built with Claude</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Component structure needs improvement.')">Component structure poor</button>
+        </div>
+        <textarea id="es-remarks" rows="2" placeholder="Click chips above or type custom remarks..." style="font-size:.82rem;resize:vertical"></textarea>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button class="btn btn-outline" onclick="closeModal('eval-student-modal')">Cancel</button>
+      <button class="btn btn-primary guest-action" id="es-save-btn" onclick="saveStudentEval()">Save Evaluation</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICATION OVERLAY + PANEL -->
+<div class="notif-overlay" id="notif-overlay" onclick="closeNotifPanel()"></div>
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-panel-header">
+    <h3>Notifications</h3>
+    <button class="btn btn-outline btn-sm" onclick="markAllNotifRead()">Mark all read</button>
+    <button class="notif-close-btn" onclick="closeNotifPanel()">&#x2715;</button>
+  </div>
+  <div class="notif-list" id="notif-list">
+    <div class="loading-overlay">Loading...</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
