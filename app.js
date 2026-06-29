@@ -2200,13 +2200,19 @@ function renderAssessmentsTable() {
           ? `${publishedInfo}${inviteChip}`
           : `<span style="font-size:.75rem;color:var(--muted)">${c.status === "submitted" ? "Ready to publish" : "—"}</span>`)
       : c.status === "submitted"
-        ? `<button class="btn btn-primary btn-sm" onclick="publishAssessment('${c._id}')">Publish</button>`
+        ? `<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+            <button class="btn btn-primary btn-sm" onclick="publishAssessment('${c._id}')">Publish</button>
+            <button class="btn btn-outline btn-sm" onclick="publishToTopin('${c._id}')" style="font-size:.72rem;padding:3px 8px;color:#7c3aed;border-color:#c4b5fd" title="Push directly to Topin via local automation server">⚡ Publish to Topin</button>
+          </div>`
         : c.status === "published"
         ? `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
             ${publishedInfo}
             ${c.invites_sent
               ? inviteChip
-              : `<button class="btn btn-primary btn-sm" onclick="markInvitesSent('${c._id}')" style="font-size:.73rem;padding:4px 10px">✉ Mark Invites Sent</button>`}
+              : `<div style="display:flex;gap:5px;flex-wrap:wrap">
+                  <button class="btn btn-primary btn-sm" onclick="inviteStudents('${c._id}')" style="font-size:.72rem;padding:4px 9px">✉ Invite Students</button>
+                  <button class="btn btn-outline btn-sm" onclick="markInvitesSent('${c._id}')" style="font-size:.72rem;padding:4px 9px" title="Mark as sent without calling API">Mark Sent</button>
+                </div>`}
             <button class="btn btn-outline btn-sm" onclick="unpublishAssessment('${c._id}')" style="font-size:.73rem;padding:4px 10px">Unpublish</button>
           </div>`
         : "—";
@@ -4379,4 +4385,251 @@ window.deleteAssignment = async (id) => {
   };
   document.getElementById("delete-confirm-btn").onclick = deleteCallback;
   document.getElementById("delete-modal").classList.add("open");
+};
+
+// ── CREDENTIALS & AUTOMATION ──────────────────────────────────
+let automationCreds = {};
+let sseSource = null;
+
+window.openCredentialsModal = async () => {
+  try {
+    const snap = await getDocs(query(collection(db, "settings"), where("key", "==", "automation_creds")));
+    if (!snap.empty) {
+      automationCreds = snap.docs[0].data().value || {};
+      document.getElementById("creds-invite-endpoint").value = automationCreds.inviteEndpoint || "";
+      document.getElementById("creds-invite-key").value      = automationCreds.inviteKey      || "";
+    }
+  } catch {}
+  document.getElementById("creds-server-url").value = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  document.getElementById("creds-modal").classList.add("open");
+};
+
+window.switchCredsTab = (tab, btn) => {
+  document.querySelectorAll("#creds-tabs .tab").forEach(t => t.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  document.getElementById("creds-tab-invite").style.display = tab === "invite" ? "" : "none";
+  document.getElementById("creds-tab-topin").style.display  = tab === "topin"  ? "" : "none";
+};
+
+window.saveCredentials = async () => {
+  const inviteEndpoint = document.getElementById("creds-invite-endpoint").value.trim();
+  const inviteKey      = document.getElementById("creds-invite-key").value.trim();
+  const serverUrl      = document.getElementById("creds-server-url").value.trim();
+  try {
+    const snap = await getDocs(query(collection(db, "settings"), where("key", "==", "automation_creds")));
+    const val  = { inviteEndpoint, inviteKey };
+    if (!snap.empty) {
+      await updateDoc(doc(db, "settings", snap.docs[0].id), { value: val, updatedAt: serverTimestamp(), updatedBy: currentUserEmail });
+    } else {
+      await addDoc(collection(db, "settings"), { key: "automation_creds", value: val, updatedAt: serverTimestamp(), updatedBy: currentUserEmail });
+    }
+    automationCreds = val;
+  } catch (e) { toast("Error saving credentials: " + e.message, "error"); return; }
+  if (serverUrl) localStorage.setItem("topinServerUrl", serverUrl);
+  closeModal("creds-modal");
+  toast("Credentials saved", "success");
+};
+
+window.checkServerHealth = async () => {
+  const url = document.getElementById("creds-server-url").value.trim() || localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  const dot = document.getElementById("server-status-dot");
+  const txt = document.getElementById("server-status-txt");
+  dot.style.background = "#f59e0b"; txt.textContent = "Checking...";
+  try {
+    const resp = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(4000) });
+    if (resp.ok) { dot.style.background = "#22c55e"; txt.textContent = "Connected ✓"; }
+    else          { dot.style.background = "#ef4444"; txt.textContent = "Server returned error"; }
+  } catch {
+    dot.style.background = "#ef4444"; txt.textContent = "Not reachable — is the server running?";
+  }
+};
+
+// ── SSE progress helpers ──────────────────────────────────────
+function openProgressModal(title) {
+  document.getElementById("progress-modal-title").textContent = title;
+  document.getElementById("progress-log").innerHTML = "";
+  document.getElementById("progress-result").style.display   = "none";
+  document.getElementById("progress-cancel-btn").style.display = "";
+  document.getElementById("progress-close-btn").style.display  = "none";
+  document.getElementById("progress-modal").classList.add("open");
+}
+
+function logProgress(type, message) {
+  const log   = document.getElementById("progress-log");
+  const color = type === "error" ? "#f87171" : type === "success" || type === "done" ? "#4ade80" : "#93c5fd";
+  const line  = document.createElement("div");
+  line.style.cssText = `color:${color};margin-bottom:4px`;
+  line.textContent   = `[${new Date().toLocaleTimeString()}] ${message}`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function finishProgress(success, message, extra = {}) {
+  const res = document.getElementById("progress-result");
+  res.style.display    = "block";
+  res.style.background = success ? "#dcfce7" : "#fee2e2";
+  res.style.color      = success ? "#15803d" : "#dc2626";
+  res.style.border     = `1px solid ${success ? "#bbf7d0" : "#fca5a5"}`;
+  res.style.borderRadius = "6px"; res.style.padding = "10px 14px"; res.style.fontSize = ".83rem";
+  res.textContent = message;
+  if (extra.assessmentLink) {
+    const a = document.createElement("a");
+    a.href = extra.assessmentLink; a.target = "_blank";
+    a.style.cssText = "display:block;font-size:.78rem;margin-top:6px;color:#1d4ed8;word-break:break-all";
+    a.textContent = extra.assessmentLink;
+    res.appendChild(a);
+  }
+  document.getElementById("progress-cancel-btn").style.display = "none";
+  document.getElementById("progress-close-btn").style.display  = "";
+}
+
+function connectSSE(serverUrl) {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  sseSource = new EventSource(`${serverUrl}/api/publish/progress`);
+  sseSource.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      logProgress(data.type, data.message);
+      if (data.type === "done")  finishProgress(true,  "Published successfully ✓", data);
+      if (data.type === "error") finishProgress(false, `Error: ${data.message}`);
+    } catch {}
+  };
+  sseSource.onerror = () => logProgress("error", "SSE connection lost");
+}
+
+window.cancelAutomation = async () => {
+  const url = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  try { await fetch(`${url}/api/publish/cancel`, { method: "POST" }); } catch {}
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  closeModal("progress-modal");
+};
+
+// ── Publish to Topin via local automation server ──────────────
+window.publishToTopin = async (configId) => {
+  const c = allConfigs.find(x => x._id === configId);
+  if (!c) return;
+  const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  try {
+    await fetch(`${serverUrl}/api/health`, { signal: AbortSignal.timeout(3000) });
+  } catch {
+    toast("Local automation server not reachable. Start it via server/start.ps1 and set the URL in Credentials.", "error");
+    return;
+  }
+  openProgressModal("Publishing to Topin");
+  connectSSE(serverUrl);
+
+  const mobile = prompt("Enter your Topin mobile number (10 digits):");
+  if (!mobile) { closeModal("progress-modal"); return; }
+
+  try {
+    const startResp = await fetch(`${serverUrl}/api/publish/start`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mobile })
+    });
+    const startData = await startResp.json();
+    if (startData.status === "already_authenticated") {
+      await runTopinPublish(serverUrl, c, configId);
+    } else if (startData.status === "otp_sent") {
+      document.getElementById("otp-input").value = "";
+      document.getElementById("otp-modal").classList.add("open");
+      document.getElementById("otp-submit-btn").onclick = async () => {
+        closeModal("otp-modal");
+        await runTopinPublish(serverUrl, c, configId);
+      };
+    } else {
+      logProgress("error", startData.error || "Failed to start login");
+      finishProgress(false, "Login failed");
+    }
+  } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
+};
+
+window.submitOTP = async () => {
+  const otp = document.getElementById("otp-input").value.trim();
+  const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  if (otp.length !== 6) { toast("Enter a valid 6-digit OTP", "error"); return; }
+  const btn = document.getElementById("otp-submit-btn");
+  btn.textContent = "Verifying..."; btn.disabled = true;
+  try {
+    const resp = await fetch(`${serverUrl}/api/publish/verify-otp`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ otp })
+    });
+    const data = await resp.json();
+    if (data.status === "authenticated") closeModal("otp-modal");
+    else toast("OTP verification failed: " + (data.error || "unknown"), "error");
+  } catch (e) { toast("Error: " + e.message, "error"); }
+  finally { btn.textContent = "Verify & Login"; btn.disabled = false; }
+};
+
+async function runTopinPublish(serverUrl, c, configId) {
+  logProgress("info", "Sending assessment details to automation server...");
+  try {
+    const resp = await fetch(`${serverUrl}/api/publish/run`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        assessmentName: `${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? " " + c.batch : ""}`,
+        assessmentDate: c.assessment_date        || "",
+        startTime:      c.assessment_start_time  || "",
+        endTime:        c.assessment_end_time     || "",
+        uniqueExamId:   configId,
+        accessType:     "Public"
+      })
+    });
+    const data = await resp.json();
+    if (data.status !== "started") { logProgress("error", data.error || "Start failed"); finishProgress(false, "Publish job failed to start"); }
+  } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
+}
+
+// ── Invite Students via /api/invite Vercel function ───────────
+window.inviteStudents = async (configId) => {
+  const c = allConfigs.find(x => x._id === configId);
+  if (!c) return;
+  if (!automationCreds.inviteEndpoint) {
+    try {
+      const snap = await getDocs(query(collection(db, "settings"), where("key", "==", "automation_creds")));
+      if (!snap.empty) automationCreds = snap.docs[0].data().value || {};
+    } catch {}
+  }
+  if (!automationCreds.inviteEndpoint || !automationCreds.inviteKey) {
+    toast("Invite API credentials not configured. Open Credentials & Automation and fill in Invite API details.", "error");
+    return;
+  }
+
+  openProgressModal("Inviting Students");
+  logProgress("info", `Loading students for ${[c.phase, c.batch, c.week].filter(Boolean).join(" / ")}...`);
+
+  let candidates = [];
+  try {
+    const snap = await getDocs(query(collection(db, "students"),
+      where("phase", "==", c.phase || ""), where("batch", "==", c.batch || "")));
+    candidates = snap.docs.map(d => d.data().uid).filter(Boolean);
+  } catch (e) { logProgress("error", "Failed to load students: " + e.message); finishProgress(false, "Could not load student list"); return; }
+
+  if (!candidates.length) { logProgress("error", "No students found for this phase/batch"); finishProgress(false, "No students to invite"); return; }
+  logProgress("info", `Found ${candidates.length} students. Sending invites...`);
+
+  const uuidMatch  = (c.config_link || "").match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  const assessmentId = uuidMatch ? uuidMatch[0] : c.config_link;
+
+  try {
+    const resp = await fetch("/api/invite", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiEndpoint: automationCreds.inviteEndpoint, apiToken: automationCreds.inviteKey, candidates, assessmentId })
+    });
+    if (!resp.ok) { const err = await resp.json().catch(() => ({})); logProgress("error", err.error || resp.status); finishProgress(false, "Invite API error"); return; }
+    const result = await resp.json();
+    logProgress("info",    `Total: ${result.total}`);
+    logProgress("success", `Sent:  ${result.sent} invites`);
+    if (result.failed) logProgress("error", `Failed: ${result.failed}`);
+    result.errors?.forEach(e => logProgress("error", e));
+    if (result.sent > 0) {
+      await updateDoc(doc(db, "configs", configId), { invites_sent: true, invites_sent_at: serverTimestamp(), invites_sent_by: currentUserEmail, invites_count: result.sent });
+      const idx = allConfigs.findIndex(x => x._id === configId);
+      if (idx >= 0) Object.assign(allConfigs[idx], { invites_sent: true, invites_sent_at: new Date() });
+      renderAssessmentsTable();
+      finishProgress(true, `✓ ${result.sent} invites sent successfully!`);
+    } else {
+      finishProgress(false, "No invites were sent. Check credentials and try again.");
+    }
+  } catch (e) { logProgress("error", e.message); finishProgress(false, "Network error"); }
 };

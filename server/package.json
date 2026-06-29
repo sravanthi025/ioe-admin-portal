@@ -1,0 +1,15 @@
+{
+  "name": "ioe-portal-automation-server",
+  "version": "1.0.0",
+  "description": "Local automation server — Topin publishing via Playwright for IOE Admin Portal",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "playwright": "^1.44.0"
+  }
+}
