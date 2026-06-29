@@ -266,7 +266,7 @@
           <input type="text" id="student-date-range" placeholder="Assessment date range" readonly style="width:auto;min-width:200px;margin-bottom:0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;cursor:pointer;background:#fff" />
           <button class="btn btn-outline btn-sm" onclick="clearStudentFilters()">Clear</button>
           <button class="btn btn-outline btn-sm" onclick="loadStudents()">Refresh</button>
-          <button class="btn btn-primary btn-sm" onclick="exportStudentsCSV()">Export CSV</button>
+          <button class="btn btn-primary btn-sm guest-action" onclick="exportStudentsCSV()">Export CSV</button>
 
         </div>
         <div class="table-wrapper">
@@ -619,7 +619,7 @@
           <input type="text" id="syllabus-date-range" placeholder="Assessment date range" readonly style="width:auto;min-width:200px;margin-bottom:0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;cursor:pointer;background:#fff" />
           <button class="btn btn-outline btn-sm" onclick="clearSyllabusFilters()">Clear</button>
           <button class="btn btn-outline btn-sm" onclick="loadSyllabus()">Refresh</button>
-          <button class="btn btn-primary btn-sm" onclick="exportSyllabusCSV()">Export CSV</button>
+          <button class="btn btn-primary btn-sm guest-action" onclick="exportSyllabusCSV()">Export CSV</button>
         </div>
         <div class="table-wrapper">
           <table>
@@ -794,7 +794,7 @@
         <button class="btn btn-outline btn-sm" onclick="clearConfigFilters()">Clear</button>
         <button class="btn btn-outline btn-sm" onclick="loadConfigs()">Refresh</button>
         <button class="btn btn-outline btn-sm" id="sync-configs-btn" onclick="syncConfigsFromSyllabus()" title="Create pending config entries for any syllabus weeks that don't have one yet">Sync from Syllabus</button>
-        <button class="btn btn-primary btn-sm" onclick="exportConfigsCSV()">Export CSV</button>
+        <button class="btn btn-primary btn-sm guest-action" onclick="exportConfigsCSV()">Export CSV</button>
       </div>
       <div class="card" style="padding:0">
         <div class="table-wrapper">
@@ -1792,7 +1792,7 @@
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn btn-outline btn-sm guest-action" onclick="importSubmissionsCSV()" title="Upload Google Form responses CSV to auto-fill GitHub &amp; Deployment links">↑ Import Links CSV</button>
-        <button class="btn btn-outline btn-sm" onclick="downloadEvalCSV()">↓ Export Eval CSV</button>
+        <button class="btn btn-outline btn-sm guest-action" onclick="downloadEvalCSV()">↓ Export Eval CSV</button>
         <input type="file" id="submissions-csv-input" accept=".csv" style="display:none" onchange="handleSubmissionsCSV(event)" />
       </div>
     </div>

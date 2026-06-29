@@ -3670,7 +3670,7 @@ function renderAssignmentsTable() {
     if (!isGuest && (isContent || isAdmin)) {
       actions.push(`<button class="btn btn-primary btn-sm" onclick="openSubmitLinksModal('${a._id}')" style="font-size:.75rem;white-space:nowrap">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`);
     }
-    if ((isGuest || isOnGround || isAdmin) && allocCount > 0) {
+    if ((isOnGround || isAdmin) && allocCount > 0) {
       actions.push(`<button class="btn btn-outline btn-sm" onclick="downloadAllocationCSV('${a._id}')" style="font-size:.75rem;white-space:nowrap" title="Download student-set allocation CSV">↓ CSV</button>`);
     }
     if (allocCount > 0) {
