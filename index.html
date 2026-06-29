@@ -916,24 +916,30 @@
       </div>
 
       <!-- Quick stats -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
-        <div class="stat-card">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">
+        <div class="stat-card" style="cursor:pointer" onclick="switchAssessmentTab('ready', document.querySelector('#assessment-tabs .tab'))">
           <div class="stat-label">Ready to Publish</div>
           <div class="stat-value" id="asmnt-stat-ready">—</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" style="cursor:pointer" onclick="switchAssessmentTab('published', document.querySelectorAll('#assessment-tabs .tab')[1])">
           <div class="stat-label">Published</div>
           <div class="stat-value" id="asmnt-stat-published">—</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Total Configs</div>
-          <div class="stat-value" id="asmnt-stat-total">—</div>
+        <div class="stat-card" style="cursor:pointer;border-color:#fcd34d" onclick="switchAssessmentTab('invites-pending', document.querySelectorAll('#assessment-tabs .tab')[2])">
+          <div class="stat-label" style="color:#92400e">Invites Pending</div>
+          <div class="stat-value" id="asmnt-stat-invites-pending" style="color:#b45309">—</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;border-color:#bbf7d0" onclick="switchAssessmentTab('invites-sent', document.querySelectorAll('#assessment-tabs .tab')[3])">
+          <div class="stat-label" style="color:#15803d">Invites Sent</div>
+          <div class="stat-value" id="asmnt-stat-invites-sent" style="color:#15803d">—</div>
         </div>
       </div>
 
       <div class="tabs" id="assessment-tabs">
         <button class="tab active" onclick="switchAssessmentTab('ready',this)">Ready to Publish</button>
         <button class="tab" onclick="switchAssessmentTab('published',this)">Published</button>
+        <button class="tab" onclick="switchAssessmentTab('invites-pending',this)">Invites Pending</button>
+        <button class="tab" onclick="switchAssessmentTab('invites-sent',this)">Invites Sent</button>
         <button class="tab" onclick="switchAssessmentTab('all',this)">All</button>
       </div>
       <div class="toolbar" style="flex-wrap:wrap;row-gap:8px">
@@ -1576,6 +1582,18 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('delete-modal')">Cancel</button>
       <button class="btn btn-danger" id="delete-confirm-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- PUBLISH CONFIRM MODAL -->
+<div class="modal-backdrop" id="publish-modal">
+  <div class="modal" style="max-width:480px">
+    <h3>Publish Assessment</h3>
+    <div id="publish-modal-body" style="margin:16px 0"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('publish-modal')">Cancel</button>
+      <button class="btn btn-primary" id="publish-confirm-btn">Publish</button>
     </div>
   </div>
 </div>

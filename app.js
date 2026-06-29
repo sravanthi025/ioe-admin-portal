@@ -2156,8 +2156,10 @@ function renderAssessmentsTable() {
 
   const filtered = allConfigs.filter(c => {
     const matchTab = assessmentTab === "all"
-      || (assessmentTab === "ready"     && c.status === "submitted")
-      || (assessmentTab === "published" && c.status === "published");
+      || (assessmentTab === "ready"           && c.status === "submitted")
+      || (assessmentTab === "published"       && c.status === "published")
+      || (assessmentTab === "invites-pending" && c.status === "published" && !c.invites_sent)
+      || (assessmentTab === "invites-sent"    && c.status === "published" && c.invites_sent);
     const matchQ     = !q     || [c.phase, c.batch, c.week].some(v => (v||"").toLowerCase().includes(q));
     const matchPhase = !phase || c.phase === phase;
     const matchBatch = !batch || c.batch === batch;
@@ -2165,17 +2167,22 @@ function renderAssessmentsTable() {
   });
 
   // Update stats
-  const ready     = allConfigs.filter(c => c.status === "submitted").length;
-  const published = allConfigs.filter(c => c.status === "published").length;
+  const ready          = allConfigs.filter(c => c.status === "submitted").length;
+  const published      = allConfigs.filter(c => c.status === "published").length;
+  const invitesPending = allConfigs.filter(c => c.status === "published" && !c.invites_sent).length;
+  const invitesSent    = allConfigs.filter(c => c.status === "published" && c.invites_sent).length;
   const el = id => document.getElementById(id);
-  if (el("asmnt-stat-ready"))     el("asmnt-stat-ready").textContent     = ready;
-  if (el("asmnt-stat-published")) el("asmnt-stat-published").textContent = published;
-  if (el("asmnt-stat-total"))     el("asmnt-stat-total").textContent     = allConfigs.length;
+  if (el("asmnt-stat-ready"))           el("asmnt-stat-ready").textContent           = ready;
+  if (el("asmnt-stat-published"))       el("asmnt-stat-published").textContent       = published;
+  if (el("asmnt-stat-invites-pending")) el("asmnt-stat-invites-pending").textContent = invitesPending;
+  if (el("asmnt-stat-invites-sent"))    el("asmnt-stat-invites-sent").textContent    = invitesSent;
 
   const tbody = document.getElementById("assessments-tbody");
   if (!filtered.length) {
-    const msg = assessmentTab === "ready" ? "No configs ready to publish yet. Content Team needs to submit config links first."
-              : assessmentTab === "published" ? "No assessments have been published yet."
+    const msg = assessmentTab === "ready"           ? "No configs ready to publish yet. Content Team needs to submit config links first."
+              : assessmentTab === "published"       ? "No assessments have been published yet."
+              : assessmentTab === "invites-pending" ? "No published assessments with pending invites. All invites are sent!"
+              : assessmentTab === "invites-sent"    ? "No assessments with invites sent yet."
               : "No assessment entries found.";
     tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><h3>Nothing here</h3><p>${msg}</p></div></td></tr>`;
     return;
@@ -2184,12 +2191,24 @@ function renderAssessmentsTable() {
   tbody.innerHTML = filtered.map((c, i) => {
     const publishedInfo = c.published_at
       ? `<div style="font-size:.69rem;color:var(--muted);margin-bottom:4px">Published ${formatDate(c.published_at)}</div>` : "";
+    const inviteChip = c.invites_sent
+      ? `<span style="font-size:.7rem;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:10px;padding:2px 8px;font-weight:600;white-space:nowrap">✓ Invites Sent</span>`
+      : `<span style="font-size:.7rem;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:2px 8px;white-space:nowrap">Invites Pending</span>`;
+
     const actions = isGuest
-      ? (publishedInfo || `<span style="font-size:.75rem;color:var(--muted)">${c.status === "submitted" ? "Ready to publish" : "—"}</span>`)
+      ? (c.status === "published"
+          ? `${publishedInfo}${inviteChip}`
+          : `<span style="font-size:.75rem;color:var(--muted)">${c.status === "submitted" ? "Ready to publish" : "—"}</span>`)
       : c.status === "submitted"
         ? `<button class="btn btn-primary btn-sm" onclick="publishAssessment('${c._id}')">Publish</button>`
         : c.status === "published"
-        ? `${publishedInfo}<button class="btn btn-outline btn-sm" onclick="unpublishAssessment('${c._id}')">Unpublish</button>`
+        ? `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+            ${publishedInfo}
+            ${c.invites_sent
+              ? inviteChip
+              : `<button class="btn btn-primary btn-sm" onclick="markInvitesSent('${c._id}')" style="font-size:.73rem;padding:4px 10px">✉ Mark Invites Sent</button>`}
+            <button class="btn btn-outline btn-sm" onclick="unpublishAssessment('${c._id}')" style="font-size:.73rem;padding:4px 10px">Unpublish</button>
+          </div>`
         : "—";
 
     return `<tr>
@@ -2204,7 +2223,39 @@ function renderAssessmentsTable() {
   }).join("");
 }
 
-window.publishAssessment = async (id) => {
+window.publishAssessment = (id) => {
+  const c = allConfigs.find(x => x._id === id);
+  if (!c) return;
+
+  const checks = [
+    { label: "Main Config Link",   ok: !!c.config_link,           value: c.config_link      || "—" },
+    { label: "Mock Config Link",   ok: c.mock_assessment !== "required" || !!c.mock_config_link,
+                                                                   value: c.mock_assessment !== "required" ? "Not required" : (c.mock_config_link || "—") },
+    { label: "Assessment Date",    ok: !!c.assessment_date,        value: c.assessment_date  ? formatDate(c.assessment_date)  : "—" },
+    { label: "Assessment Time",    ok: !!c.assessment_start_time,  value: c.assessment_start_time || "—" },
+  ];
+  const allOk = checks.every(ch => ch.ok);
+
+  const checklistHTML = checks.map(ch => `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;background:${ch.ok ? "#dcfce7" : "#fee2e2"};color:${ch.ok ? "#15803d" : "#dc2626"}">${ch.ok ? "✓" : "✗"}</span>
+      <div>
+        <div style="font-size:.82rem;font-weight:600;color:var(--text)">${ch.label}</div>
+        <div style="font-size:.73rem;color:var(--muted);word-break:break-all">${escHtml(String(ch.value))}</div>
+      </div>
+    </div>`).join("");
+
+  document.getElementById("publish-modal-body").innerHTML = `
+    <p style="color:var(--muted);font-size:.84rem;margin-bottom:12px">Publishing <strong>${escHtml(c.week)}${c.phase ? " — " + escHtml(c.phase) : ""}${c.batch ? ", " + escHtml(c.batch) : ""}</strong> to go-live on Topin.</p>
+    <div style="background:#f8fafc;border-radius:8px;padding:0 12px;margin-bottom:14px">${checklistHTML}</div>
+    ${!allOk ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:10px 12px;font-size:.8rem;color:#92400e">⚠ Some fields are missing. You can still publish, but students may not have complete information.</div>` : ""}`;
+
+  document.getElementById("publish-confirm-btn").onclick = () => confirmPublishAssessment(id);
+  document.getElementById("publish-modal").classList.add("open");
+};
+
+window.confirmPublishAssessment = async (id) => {
+  closeModal("publish-modal");
   const c = allConfigs.find(x => x._id === id);
   if (!c) return;
   if (!c.config_link) { toast("Cannot publish — no config link available", "error"); return; }
@@ -2212,14 +2263,32 @@ window.publishAssessment = async (id) => {
     await updateDoc(doc(db, "configs", id), {
       status: "published",
       published_at: serverTimestamp(),
-      published_by: currentUserEmail
+      published_by: currentUserEmail,
+      invites_sent: false
     });
     const idx = allConfigs.findIndex(x => x._id === id);
-    if (idx >= 0) Object.assign(allConfigs[idx], { status: "published", published_at: new Date() });
+    if (idx >= 0) Object.assign(allConfigs[idx], { status: "published", published_at: new Date(), invites_sent: false });
     renderAssessmentsTable();
-    toast("Assessment published", "success");
+    toast("Assessment published — mark invites sent after notifying students", "success");
     await createNotification("assessment", "published", "Assessment Published",
       `${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? ", " + c.batch : ""} has been published.`);
+  } catch (e) { toast("Error: " + e.message, "error"); }
+};
+
+window.markInvitesSent = async (id) => {
+  const c = allConfigs.find(x => x._id === id);
+  if (!c) return;
+  if (!confirm(`Mark invites as sent for ${c.week}${c.phase ? " — " + c.phase : ""}?\nThis confirms students have been notified on Topin.`)) return;
+  try {
+    await updateDoc(doc(db, "configs", id), {
+      invites_sent: true,
+      invites_sent_at: serverTimestamp(),
+      invites_sent_by: currentUserEmail
+    });
+    const idx = allConfigs.findIndex(x => x._id === id);
+    if (idx >= 0) Object.assign(allConfigs[idx], { invites_sent: true, invites_sent_at: new Date() });
+    renderAssessmentsTable();
+    toast("Invites marked as sent ✓", "success");
   } catch (e) { toast("Error: " + e.message, "error"); }
 };
 
@@ -2228,9 +2297,9 @@ window.unpublishAssessment = async (id) => {
   if (!c) return;
   if (!confirm(`Unpublish assessment for ${escHtml(c.week)}${c.phase ? " — " + c.phase : ""}? This will move it back to "Ready to Publish".`)) return;
   try {
-    await updateDoc(doc(db, "configs", id), { status: "submitted", published_at: null, published_by: null });
+    await updateDoc(doc(db, "configs", id), { status: "submitted", published_at: null, published_by: null, invites_sent: false, invites_sent_at: null });
     const idx = allConfigs.findIndex(x => x._id === id);
-    if (idx >= 0) Object.assign(allConfigs[idx], { status: "submitted", published_at: null });
+    if (idx >= 0) Object.assign(allConfigs[idx], { status: "submitted", published_at: null, invites_sent: false });
     renderAssessmentsTable();
     toast("Assessment unpublished", "success");
   } catch (e) { toast("Error: " + e.message, "error"); }
