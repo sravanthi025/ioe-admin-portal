@@ -1665,7 +1665,14 @@
 <div class="modal-backdrop" id="progress-modal">
   <div class="modal" style="max-width:520px">
     <h3 id="progress-modal-title">Publishing to Topin</h3>
-    <div id="progress-log" style="background:#0f172a;border-radius:8px;padding:14px;height:240px;overflow-y:auto;font-family:monospace;font-size:.78rem;margin:16px 0;color:#e2e8f0"></div>
+
+    <!-- Step 0: choose what to publish (shown before job starts) -->
+    <div id="progress-target-picker" style="display:none;margin:16px 0">
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:14px">What would you like to publish for this config?</p>
+      <div style="display:flex;flex-direction:column;gap:8px" id="progress-target-btns"></div>
+    </div>
+
+    <div id="progress-log" style="background:#0f172a;border-radius:8px;padding:14px;height:240px;overflow-y:auto;font-family:monospace;font-size:.78rem;margin:16px 0;color:#e2e8f0;display:none"></div>
     <div id="progress-result" style="display:none;padding:10px 14px;border-radius:6px;font-size:.83rem;margin-bottom:12px"></div>
     <div class="modal-footer">
       <button class="btn btn-outline" id="progress-cancel-btn" onclick="cancelAutomation()">Cancel</button>

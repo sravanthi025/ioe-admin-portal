@@ -4445,14 +4445,37 @@ window.checkServerHealth = async () => {
 };
 
 // ── SSE progress helpers ──────────────────────────────────────
-function openProgressModal(title) {
-  document.getElementById("progress-modal-title").textContent = title;
-  document.getElementById("progress-log").innerHTML = "";
-  document.getElementById("progress-result").style.display   = "none";
+function openProgressModal(title, { showTargetPicker = false, targetOptions = [], onTarget } = {}) {
+  document.getElementById("progress-modal-title").textContent  = title;
+  document.getElementById("progress-log").innerHTML            = "";
+  document.getElementById("progress-log").style.display        = showTargetPicker ? "none" : "";
+  document.getElementById("progress-result").style.display     = "none";
   document.getElementById("progress-cancel-btn").style.display = "";
   document.getElementById("progress-close-btn").style.display  = "none";
+
+  const picker = document.getElementById("progress-target-picker");
+  const btns   = document.getElementById("progress-target-btns");
+  if (showTargetPicker && targetOptions.length) {
+    picker.style.display = "";
+    btns.innerHTML = targetOptions.map(opt => `
+      <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:10px 14px;text-align:left"
+              onclick="selectPublishTarget('${opt.value}')">
+        <strong style="font-size:.9rem">${opt.label}</strong>
+        <span style="font-size:.76rem;color:var(--muted);display:block;margin-top:2px">${opt.desc}</span>
+      </button>`).join("");
+    window._onPublishTargetSelected = onTarget;
+  } else {
+    picker.style.display = "none";
+  }
+
   document.getElementById("progress-modal").classList.add("open");
 }
+
+window.selectPublishTarget = (value) => {
+  document.getElementById("progress-target-picker").style.display = "none";
+  document.getElementById("progress-log").style.display           = "";
+  if (window._onPublishTargetSelected) window._onPublishTargetSelected(value);
+};
 
 function logProgress(type, message) {
   const log   = document.getElementById("progress-log");
@@ -4515,32 +4538,54 @@ window.publishToTopin = async (configId) => {
     toast("Local automation server not reachable. Start it via server/start.ps1 and set the URL in Credentials.", "error");
     return;
   }
-  openProgressModal("Publishing to Topin");
-  connectSSE(serverUrl);
 
-  const mobile = prompt("Enter your Topin mobile number (10 digits):");
-  if (!mobile) { closeModal("progress-modal"); return; }
+  const hasMock = c.mock_assessment === "required";
 
-  try {
-    const startResp = await fetch(`${serverUrl}/api/publish/start`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mobile })
-    });
-    const startData = await startResp.json();
-    if (startData.status === "already_authenticated") {
-      await runTopinPublish(serverUrl, c, configId);
-    } else if (startData.status === "otp_sent") {
-      document.getElementById("otp-input").value = "";
-      document.getElementById("otp-modal").classList.add("open");
-      document.getElementById("otp-submit-btn").onclick = async () => {
-        closeModal("otp-modal");
-        await runTopinPublish(serverUrl, c, configId);
-      };
-    } else {
-      logProgress("error", startData.error || "Failed to start login");
-      finishProgress(false, "Login failed");
+  // Build target options based on config
+  const targetOptions = [];
+  if (hasMock) {
+    targetOptions.push({ value: "mock",  label: "Mock Assessment only",  desc: `Date: ${c.mock_assessment_date || "not set"} · ${c.mock_assessment_start_time || "?"} – ${c.mock_assessment_end_time || "?"}` });
+    targetOptions.push({ value: "main",  label: "Main Assessment only",  desc: `Date: ${c.assessment_date || "not set"} · ${c.assessment_start_time || "?"} – ${c.assessment_end_time || "?"}` });
+    targetOptions.push({ value: "both",  label: "Both (Mock first, then Main)", desc: "Publishes mock assessment, then immediately publishes main assessment" });
+  } else {
+    targetOptions.push({ value: "main",  label: "Main Assessment",       desc: `Date: ${c.assessment_date || "not set"} · ${c.assessment_start_time || "?"} – ${c.assessment_end_time || "?"}` });
+  }
+
+  openProgressModal("Publish to Topin", {
+    showTargetPicker: true,
+    targetOptions,
+    onTarget: async (target) => {
+      connectSSE(serverUrl);
+      const mobile = prompt("Enter your Topin mobile number (10 digits):");
+      if (!mobile) { closeModal("progress-modal"); return; }
+      try {
+        const startResp = await fetch(`${serverUrl}/api/publish/start`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mobile })
+        });
+        const startData = await startResp.json();
+        const proceed = async () => {
+          if (target === "mock" || target === "both") {
+            await runTopinPublish(serverUrl, c, configId, "mock");
+          }
+          if (target === "main" || target === "both") {
+            if (target === "both") await new Promise(r => setTimeout(r, 1500));
+            await runTopinPublish(serverUrl, c, configId, "main");
+          }
+        };
+        if (startData.status === "already_authenticated") {
+          await proceed();
+        } else if (startData.status === "otp_sent") {
+          document.getElementById("otp-input").value = "";
+          document.getElementById("otp-modal").classList.add("open");
+          document.getElementById("otp-submit-btn").onclick = async () => { closeModal("otp-modal"); await proceed(); };
+        } else {
+          logProgress("error", startData.error || "Failed to start login");
+          finishProgress(false, "Login failed");
+        }
+      } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
     }
-  } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
+  });
 };
 
 window.submitOTP = async () => {
@@ -4561,22 +4606,24 @@ window.submitOTP = async () => {
   finally { btn.textContent = "Verify & Login"; btn.disabled = false; }
 };
 
-async function runTopinPublish(serverUrl, c, configId) {
-  logProgress("info", "Sending assessment details to automation server...");
+async function runTopinPublish(serverUrl, c, configId, target = "main") {
+  const isMock = target === "mock";
+  const label  = isMock ? "Mock Assessment" : "Main Assessment";
+  logProgress("info", `Starting publish: ${label}...`);
   try {
     const resp = await fetch(`${serverUrl}/api/publish/run`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        assessmentName: `${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? " " + c.batch : ""}`,
-        assessmentDate: c.assessment_date        || "",
-        startTime:      c.assessment_start_time  || "",
-        endTime:        c.assessment_end_time     || "",
-        uniqueExamId:   configId,
+        assessmentName: `${isMock ? "[MOCK] " : ""}${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? " " + c.batch : ""}`,
+        assessmentDate: isMock ? (c.mock_assessment_date        || "") : (c.assessment_date        || ""),
+        startTime:      isMock ? (c.mock_assessment_start_time  || "") : (c.assessment_start_time  || ""),
+        endTime:        isMock ? (c.mock_assessment_end_time     || "") : (c.assessment_end_time     || ""),
+        uniqueExamId:   `${configId}${isMock ? "_mock" : ""}`,
         accessType:     "Public"
       })
     });
     const data = await resp.json();
-    if (data.status !== "started") { logProgress("error", data.error || "Start failed"); finishProgress(false, "Publish job failed to start"); }
+    if (data.status !== "started") { logProgress("error", data.error || "Start failed"); finishProgress(false, `${label} publish failed to start`); }
   } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
 }
 
