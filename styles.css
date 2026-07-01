@@ -1055,11 +1055,12 @@ tr.ad-detail-row td { border-top: none !important; padding: 0 !important; }
 .guest-mode .guest-action { display: none !important; }
 
 .pub-dd-item {
-  display: block; width: 100%; padding: 9px 14px; background: none; border: none;
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 9px 14px; background: none; border: none;
   text-align: left; cursor: pointer; font-size: .83rem; color: var(--text);
-  white-space: nowrap;
+  white-space: nowrap; gap: 12px;
 }
-.pub-dd-item:hover { background: #f1f5f9; }
+.pub-dd-item:hover { background: #f8fafc; }
 
 .guest-mode #upload-tabs,
 .guest-mode #upload-tab-csv,

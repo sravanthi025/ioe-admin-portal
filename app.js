@@ -2200,14 +2200,24 @@ function renderAssessmentsTable() {
           ? `${publishedInfo}${inviteChip}`
           : `<span style="font-size:.75rem;color:var(--muted)">${c.status === "submitted" ? "Ready to publish" : "—"}</span>`)
       : c.status === "submitted"
-        ? `<div style="position:relative;display:inline-flex">
-            <button class="btn btn-primary btn-sm" onclick="publishAssessment('${c._id}','main')" style="border-radius:6px 0 0 6px;border-right:1px solid rgba(255,255,255,.3)">Publish</button>
-            <button class="btn btn-primary btn-sm" onclick="togglePubDropdown('${c._id}')" style="border-radius:0 6px 6px 0;padding:0 9px;font-size:.85rem" title="Choose what to publish">▾</button>
-            <div id="pub-dd-${c._id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.12);min-width:170px;padding:4px 0">
-              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;padding:6px 12px 4px">What to publish</div>
-              <button onclick="publishAssessment('${c._id}','main');togglePubDropdown('${c._id}')" class="pub-dd-item">✓ Main Assessment</button>
-              ${c.mock_assessment === "required" ? `<button onclick="publishAssessment('${c._id}','mock');togglePubDropdown('${c._id}')" class="pub-dd-item">📝 Mock Assessment</button>
-              <button onclick="publishAssessment('${c._id}','both');togglePubDropdown('${c._id}')" class="pub-dd-item">⚡ Both (Mock + Main)</button>` : ""}
+        ? `<div style="position:relative;display:inline-block">
+            <button class="btn btn-primary btn-sm" onclick="togglePubDropdown('${c._id}')" style="display:flex;align-items:center;gap:8px">
+              Publish
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="pub-dd-${c._id}" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.1);min-width:190px;overflow:hidden">
+              <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;padding:10px 14px 6px">Select type</div>
+              <button onclick="publishAssessment('${c._id}','main');togglePubDropdown('${c._id}')" class="pub-dd-item">
+                <span>Main Assessment</span><span style="font-size:.65rem;font-weight:700;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:1px 6px">MAIN</span>
+              </button>
+              ${c.mock_assessment === "required" ? `
+              <button onclick="publishAssessment('${c._id}','mock');togglePubDropdown('${c._id}')" class="pub-dd-item">
+                <span>Mock Assessment</span><span style="font-size:.65rem;font-weight:700;background:#ede9fe;color:#7c3aed;border-radius:4px;padding:1px 6px">MOCK</span>
+              </button>
+              <div style="height:1px;background:#f1f5f9;margin:4px 0"></div>
+              <button onclick="publishAssessment('${c._id}','both');togglePubDropdown('${c._id}')" class="pub-dd-item">
+                <span>Mock + Main</span><span style="font-size:.65rem;font-weight:700;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px">BOTH</span>
+              </button>` : ""}
             </div>
           </div>`
         : c.status === "published"
