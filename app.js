@@ -2098,16 +2098,14 @@ function configLinkCell(href) {
 }
 
 function configStatusBadge(c) {
-  if (c.status === "published") return `<span class="badge badge-published">Published</span>`;
+  if (c.status === "published") return `<span class="badge badge-published">Live</span>`;
   const hasMain = !!c.config_link;
   const mockRequired = c.mock_assessment === "required";
   const hasMock = !!c.mock_config_link;
   if (!hasMain && !hasMock) return `<span class="badge badge-pending">Pending</span>`;
-  if (mockRequired && hasMain && !hasMock)
-    return `<span class="badge badge-mock-pending">Mock Link Pending</span>`;
-  if (mockRequired && !hasMain && hasMock)
-    return `<span class="badge badge-mock-pending">Main Link Pending</span>`;
-  return `<span class="badge badge-approved">Submitted</span>`;
+  if (mockRequired && hasMain && !hasMock) return `<span class="badge badge-mock-pending">Mock Link Missing</span>`;
+  if (mockRequired && !hasMain && hasMock) return `<span class="badge badge-mock-pending">Main Link Missing</span>`;
+  return `<span class="badge badge-approved">Ready</span>`;
 }
 
 // ── ASSESSMENTS ───────────────────────────────────────────────
