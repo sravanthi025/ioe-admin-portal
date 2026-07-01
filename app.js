@@ -220,7 +220,7 @@ function applyRoleAccess(team) {
     "On Ground Team":      ["dashboard","students","syllabus","assessment-details","assignments"],
     "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments"],
     "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments"],
-    "Instructor":          ["dashboard","assessment-details","assignments"],
+    "Instructor":          ["dashboard","assignments"],
     "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments"],
   };
   const allowed = access[team] || access["admin"];
