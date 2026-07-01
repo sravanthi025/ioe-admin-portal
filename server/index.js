@@ -376,7 +376,7 @@ app.post("/api/publish/run", async (req, res) => {
           'a[href*="topin.tech"]',
         ].join(", ")).first();
         if (await linkEl.count()) {
-          assessmentLink = await linkEl.inputValue().catch(() => await linkEl.getAttribute("href").catch(() => ""));
+          try { assessmentLink = await linkEl.inputValue(); } catch { assessmentLink = await linkEl.getAttribute("href").catch(() => ""); }
         }
       }
 
