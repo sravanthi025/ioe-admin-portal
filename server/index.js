@@ -110,14 +110,38 @@ app.post("/api/publish/start", async (req, res) => {
     const b  = await ensureBrowser();
     pendingAuthCtx = await b.newContext();
     const pg = await pendingAuthCtx.newPage();
-    await pg.goto("https://config.topin.tech/", { waitUntil: "domcontentloaded", timeout: 30000 });
 
-    // Fill mobile number
-    await pg.waitForSelector('input[placeholder="Enter Number"], input[type="tel"], input[type="number"]', { timeout: 10000 });
-    const mobileInput = pg.locator('input[placeholder="Enter Number"], input[type="tel"]').first();
+    // config.topin.tech does a JS redirect → accounts.ccbp.in/login
+    // Must wait for networkidle so the redirect fully completes before querying DOM
+    await pg.goto("https://config.topin.tech/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    if (!pg.url().includes("ccbp.in")) {
+      await pg.waitForURL(url => url.includes("ccbp.in") || url.includes("login"), { timeout: 15000 }).catch(() => {});
+    }
+    await pg.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+    broadcast("info", `Login page: ${pg.url().split("?")[0]}`);
+
+    // Mobile input — accounts.ccbp.in may use different placeholder than config.topin.tech
+    const mobileInput = pg.locator([
+      'input[placeholder="Enter Number"]',
+      'input[placeholder*="mobile" i]',
+      'input[placeholder*="phone" i]',
+      'input[placeholder*="number" i]',
+      'input[type="tel"]',
+      'input[name*="mobile" i]',
+      'input[name*="phone" i]',
+      'input[id*="mobile" i]',
+    ].join(", ")).first();
+    await mobileInput.waitFor({ state: "visible", timeout: 15000 });
     await mobileInput.fill(mobile);
 
-    await pg.locator('button:has-text("GET OTP"), button:has-text("Send OTP"), button:has-text("Get OTP")').first().click();
+    await pg.locator([
+      'button:has-text("GET OTP")',
+      'button:has-text("Get OTP")',
+      'button:has-text("Send OTP")',
+      'button:has-text("Request OTP")',
+      'button:has-text("Continue")',
+      'button[type="submit"]',
+    ].join(", ")).first().click({ timeout: 10000 });
 
     broadcast("info", `OTP sent to ${mobile.replace(/\d(?=\d{4})/g, "*")} — enter it in the portal`);
     res.json({ status: "otp_sent" });
