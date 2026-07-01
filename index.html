@@ -1672,7 +1672,20 @@
       <div style="display:flex;flex-direction:column;gap:8px" id="progress-target-btns"></div>
     </div>
 
-    <div id="progress-log" style="background:#0f172a;border-radius:8px;padding:14px;height:240px;overflow-y:auto;font-family:monospace;font-size:.78rem;margin:16px 0;color:#e2e8f0;display:none"></div>
+    <div id="progress-log" style="background:#0f172a;border-radius:8px;padding:14px;height:220px;overflow-y:auto;font-family:monospace;font-size:.78rem;margin:16px 0;color:#e2e8f0;display:none"></div>
+
+    <!-- Inline OTP entry — appears inside the progress modal when OTP is sent -->
+    <div id="progress-otp-box" style="display:none;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px">
+      <p style="font-size:.84rem;font-weight:600;color:var(--text);margin-bottom:4px">Enter OTP</p>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Check your mobile for the 6-digit OTP from Topin.</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="progress-otp-input" class="form-input" placeholder="6-digit OTP" maxlength="6" inputmode="numeric"
+               style="text-align:center;letter-spacing:.25em;font-size:1.1rem;flex:1"
+               oninput="this.value=this.value.replace(/\D/g,'')" />
+        <button class="btn btn-primary" id="progress-otp-btn" onclick="submitInlineOTP()">Verify</button>
+      </div>
+    </div>
+
     <div id="progress-result" style="display:none;padding:10px 14px;border-radius:6px;font-size:.83rem;margin-bottom:12px"></div>
     <div class="modal-footer">
       <button class="btn btn-outline" id="progress-cancel-btn" onclick="cancelAutomation()">Cancel</button>

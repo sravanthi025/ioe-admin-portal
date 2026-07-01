@@ -4496,8 +4496,10 @@ function openProgressModal(title, { showTargetPicker = false, targetOptions = []
   document.getElementById("progress-log").innerHTML            = "";
   document.getElementById("progress-log").style.display        = showTargetPicker ? "none" : "";
   document.getElementById("progress-result").style.display     = "none";
+  document.getElementById("progress-otp-box").style.display    = "none";
   document.getElementById("progress-cancel-btn").style.display = "";
   document.getElementById("progress-close-btn").style.display  = "none";
+  window._otpProceed = null;
 
   const picker = document.getElementById("progress-target-picker");
   const btns   = document.getElementById("progress-target-btns");
@@ -4624,9 +4626,11 @@ window.publishToTopin = async (configId, preselectedTarget = null) => {
       };
       if (startData.status === "already_authenticated") { await proceed(); }
       else if (startData.status === "otp_sent") {
-        document.getElementById("otp-input").value = "";
-        document.getElementById("otp-modal").classList.add("open");
-        document.getElementById("otp-submit-btn").onclick = async () => { closeModal("otp-modal"); await proceed(); };
+        const otpBox = document.getElementById("progress-otp-box");
+        document.getElementById("progress-otp-input").value = "";
+        otpBox.style.display = "";
+        document.getElementById("progress-otp-input").focus();
+        window._otpProceed = proceed;
       } else { logProgress("error", startData.error || "Failed to start login"); finishProgress(false, "Login failed"); }
     } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
   };
@@ -4659,6 +4663,30 @@ window.submitOTP = async () => {
     else toast("OTP verification failed: " + (data.error || "unknown"), "error");
   } catch (e) { toast("Error: " + e.message, "error"); }
   finally { btn.textContent = "Verify & Login"; btn.disabled = false; }
+};
+
+window.submitInlineOTP = async () => {
+  const otp = document.getElementById("progress-otp-input").value.trim();
+  const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  if (otp.length !== 6) { toast("Enter a valid 6-digit OTP", "error"); return; }
+  const btn = document.getElementById("progress-otp-btn");
+  btn.textContent = "Verifying..."; btn.disabled = true;
+  try {
+    const resp = await fetch(`${serverUrl}/api/publish/verify-otp`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ otp })
+    });
+    const data = await resp.json();
+    if (data.status === "authenticated") {
+      document.getElementById("progress-otp-box").style.display = "none";
+      logProgress("success", "OTP verified — proceeding with publish...");
+      if (window._otpProceed) { window._otpProceed(); window._otpProceed = null; }
+    } else {
+      logProgress("error", "OTP verification failed: " + (data.error || "unknown"));
+      toast("Wrong OTP — try again", "error");
+    }
+  } catch (e) { logProgress("error", e.message); toast("Error: " + e.message, "error"); }
+  finally { btn.textContent = "Verify"; btn.disabled = false; }
 };
 
 async function runTopinPublish(serverUrl, c, configId, target = "main") {
