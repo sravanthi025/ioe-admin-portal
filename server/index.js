@@ -122,7 +122,7 @@ app.post("/api/publish/verify-otp", async (req, res) => {
     }
 
     broadcast("info", "Clicking Verify & Login...");
-    await pg.click('button:has-text(/Verify & Login/i)');
+    await pg.getByRole("button", { name: /Verify.*Login/i }).click();
     await pg.waitForURL("**/config.topin.tech/**", { timeout: 15000 });
 
     await pendingAuthCtx.storageState({ path: SESSION_FILE });
