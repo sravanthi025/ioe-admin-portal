@@ -2200,18 +2200,15 @@ function renderAssessmentsTable() {
           ? `${publishedInfo}${inviteChip}`
           : `<span style="font-size:.75rem;color:var(--muted)">${c.status === "submitted" ? "Ready to publish" : "—"}</span>`)
       : c.status === "submitted"
-        ? `<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
-            <div style="position:relative;display:inline-flex">
-              <button class="btn btn-primary btn-sm" onclick="publishAssessment('${c._id}','main')" style="border-radius:6px 0 0 6px;border-right:1px solid rgba(255,255,255,.3)">Publish</button>
-              <button class="btn btn-primary btn-sm" onclick="togglePubDropdown('${c._id}')" style="border-radius:0 6px 6px 0;padding:0 9px;font-size:.85rem" title="Choose what to publish">▾</button>
-              <div id="pub-dd-${c._id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.12);min-width:170px;padding:4px 0">
-                <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;padding:6px 12px 4px">What to publish</div>
-                <button onclick="publishAssessment('${c._id}','main');togglePubDropdown('${c._id}')" class="pub-dd-item">✓ Main Assessment</button>
-                ${c.mock_assessment === "required" ? `<button onclick="publishAssessment('${c._id}','mock');togglePubDropdown('${c._id}')" class="pub-dd-item">📝 Mock Assessment</button>
-                <button onclick="publishAssessment('${c._id}','both');togglePubDropdown('${c._id}')" class="pub-dd-item">⚡ Both (Mock + Main)</button>` : ""}
-              </div>
+        ? `<div style="position:relative;display:inline-flex">
+            <button class="btn btn-primary btn-sm" onclick="publishAssessment('${c._id}','main')" style="border-radius:6px 0 0 6px;border-right:1px solid rgba(255,255,255,.3)">Publish</button>
+            <button class="btn btn-primary btn-sm" onclick="togglePubDropdown('${c._id}')" style="border-radius:0 6px 6px 0;padding:0 9px;font-size:.85rem" title="Choose what to publish">▾</button>
+            <div id="pub-dd-${c._id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.12);min-width:170px;padding:4px 0">
+              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;padding:6px 12px 4px">What to publish</div>
+              <button onclick="publishAssessment('${c._id}','main');togglePubDropdown('${c._id}')" class="pub-dd-item">✓ Main Assessment</button>
+              ${c.mock_assessment === "required" ? `<button onclick="publishAssessment('${c._id}','mock');togglePubDropdown('${c._id}')" class="pub-dd-item">📝 Mock Assessment</button>
+              <button onclick="publishAssessment('${c._id}','both');togglePubDropdown('${c._id}')" class="pub-dd-item">⚡ Both (Mock + Main)</button>` : ""}
             </div>
-            <button class="btn btn-outline btn-sm" onclick="publishToTopin('${c._id}')" style="font-size:.72rem;padding:3px 8px;color:#7c3aed;border-color:#c4b5fd" title="Push directly to Topin via local automation server">⚡ Publish to Topin</button>
           </div>`
         : c.status === "published"
         ? `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
@@ -2305,25 +2302,35 @@ window.confirmPublishAssessment = async (id, target = "main") => {
 
   const isMock = target === "mock";
   const isBoth = target === "both";
-
-  // Validate required links
-  if ((target === "main" || isBoth) && !c.config_link) { toast("Cannot publish — Main config link is missing", "error"); return; }
-  if ((isMock || isBoth) && !c.mock_config_link)        { toast("Cannot publish — Mock config link is missing", "error"); return; }
-
   const targetLabel = isMock ? "Mock Assessment" : isBoth ? "Mock + Main Assessment" : "Main Assessment";
+
+  if ((target === "main" || isBoth) && !c.config_link)   { toast("Cannot publish — Main config link is missing", "error"); return; }
+  if ((isMock || isBoth) && !c.mock_config_link)          { toast("Cannot publish — Mock config link is missing", "error"); return; }
+
+  // Try Topin automation first if local server is reachable
+  const serverUrl  = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  let topinSuccess = false;
   try {
-    const updates = {
-      status:       "published",
-      published_at: serverTimestamp(),
-      published_by: currentUserEmail,
-      publish_target: target,
-      invites_sent: false
-    };
-    await updateDoc(doc(db, "configs", id), updates);
+    const h = await fetch(`${serverUrl}/api/health`, { signal: AbortSignal.timeout(2000) });
+    if (h.ok) {
+      // Server is running — hand off to Topin automation (it will update Firestore on completion via SSE done event)
+      await publishToTopin(id, target);
+      topinSuccess = true;
+    }
+  } catch { /* server not running — fall through to manual publish */ }
+
+  if (topinSuccess) return; // Topin flow handles Firestore update on success
+
+  // Fallback: mark as published in Firestore only (manual)
+  try {
+    await updateDoc(doc(db, "configs", id), {
+      status: "published", published_at: serverTimestamp(),
+      published_by: currentUserEmail, publish_target: target, invites_sent: false
+    });
     const idx = allConfigs.findIndex(x => x._id === id);
     if (idx >= 0) Object.assign(allConfigs[idx], { status: "published", published_at: new Date(), publish_target: target, invites_sent: false });
     renderAssessmentsTable();
-    toast(`${targetLabel} published ✓`, "success");
+    toast(`${targetLabel} marked as published ✓`, "success");
     await createNotification("assessment", "published", "Assessment Published",
       `${targetLabel}: ${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? ", " + c.batch : ""} is now live.`);
   } catch (e) { toast("Error: " + e.message, "error"); }
@@ -4554,15 +4561,15 @@ function finishProgress(success, message, extra = {}) {
   document.getElementById("progress-close-btn").style.display  = "";
 }
 
-function connectSSE(serverUrl) {
+function connectSSE(serverUrl, onDone = null) {
   if (sseSource) { sseSource.close(); sseSource = null; }
   sseSource = new EventSource(`${serverUrl}/api/publish/progress`);
   sseSource.onmessage = e => {
     try {
       const data = JSON.parse(e.data);
       logProgress(data.type, data.message);
-      if (data.type === "done")  finishProgress(true,  "Published successfully ✓", data);
-      if (data.type === "error") finishProgress(false, `Error: ${data.message}`);
+      if (data.type === "done")  { finishProgress(true,  "Published on Topin ✓", data); if (onDone) onDone(data); }
+      if (data.type === "error") { finishProgress(false, `Error: ${data.message}`); }
     } catch {}
   };
   sseSource.onerror = () => logProgress("error", "SSE connection lost");
@@ -4576,7 +4583,7 @@ window.cancelAutomation = async () => {
 };
 
 // ── Publish to Topin via local automation server ──────────────
-window.publishToTopin = async (configId) => {
+window.publishToTopin = async (configId, preselectedTarget = null) => {
   const c = allConfigs.find(x => x._id === configId);
   if (!c) return;
   const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
@@ -4599,41 +4606,50 @@ window.publishToTopin = async (configId) => {
     targetOptions.push({ value: "main",  label: "Main Assessment",       desc: `Date: ${c.assessment_date || "not set"} · ${c.assessment_start_time || "?"} – ${c.assessment_end_time || "?"}` });
   }
 
-  openProgressModal("Publish to Topin", {
-    showTargetPicker: true,
-    targetOptions,
-    onTarget: async (target) => {
-      connectSSE(serverUrl);
-      const mobile = prompt("Enter your Topin mobile number (10 digits):");
-      if (!mobile) { closeModal("progress-modal"); return; }
+  const startAutomation = async (target) => {
+    connectSSE(serverUrl, async (doneData) => {
+      // On SSE done: update Firestore
       try {
-        const startResp = await fetch(`${serverUrl}/api/publish/start`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mobile })
-        });
-        const startData = await startResp.json();
-        const proceed = async () => {
-          if (target === "mock" || target === "both") {
-            await runTopinPublish(serverUrl, c, configId, "mock");
-          }
-          if (target === "main" || target === "both") {
-            if (target === "both") await new Promise(r => setTimeout(r, 1500));
-            await runTopinPublish(serverUrl, c, configId, "main");
-          }
-        };
-        if (startData.status === "already_authenticated") {
-          await proceed();
-        } else if (startData.status === "otp_sent") {
-          document.getElementById("otp-input").value = "";
-          document.getElementById("otp-modal").classList.add("open");
-          document.getElementById("otp-submit-btn").onclick = async () => { closeModal("otp-modal"); await proceed(); };
-        } else {
-          logProgress("error", startData.error || "Failed to start login");
-          finishProgress(false, "Login failed");
-        }
-      } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
-    }
-  });
+        const updates = { status: "published", published_at: serverTimestamp(), published_by: currentUserEmail, publish_target: target, invites_sent: false };
+        if (doneData.assessmentLink) updates.topin_assessment_link = doneData.assessmentLink;
+        if (doneData.assessmentId)   updates.topin_assessment_id   = doneData.assessmentId;
+        await updateDoc(doc(db, "configs", configId), updates);
+        const idx = allConfigs.findIndex(x => x._id === configId);
+        if (idx >= 0) Object.assign(allConfigs[idx], { ...updates, published_at: new Date() });
+        renderAssessmentsTable();
+      } catch (e) { logProgress("error", "Firestore update failed: " + e.message); }
+    });
+    const mobile = prompt("Enter your Topin mobile number (10 digits):");
+    if (!mobile) { closeModal("progress-modal"); return; }
+    try {
+      const startResp = await fetch(`${serverUrl}/api/publish/start`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile })
+      });
+      const startData = await startResp.json();
+      const proceed = async () => {
+        if (target === "mock" || target === "both") await runTopinPublish(serverUrl, c, configId, "mock");
+        if (target === "main" || target === "both") { if (target === "both") await new Promise(r => setTimeout(r, 1500)); await runTopinPublish(serverUrl, c, configId, "main"); }
+      };
+      if (startData.status === "already_authenticated") { await proceed(); }
+      else if (startData.status === "otp_sent") {
+        document.getElementById("otp-input").value = "";
+        document.getElementById("otp-modal").classList.add("open");
+        document.getElementById("otp-submit-btn").onclick = async () => { closeModal("otp-modal"); await proceed(); };
+      } else { logProgress("error", startData.error || "Failed to start login"); finishProgress(false, "Login failed"); }
+    } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
+  };
+
+  if (preselectedTarget) {
+    openProgressModal("Publishing to Topin");
+    await startAutomation(preselectedTarget);
+  } else {
+    openProgressModal("Publish to Topin", {
+      showTargetPicker: true,
+      targetOptions,
+      onTarget: async (target) => startAutomation(target)
+    });
+  }
 };
 
 window.submitOTP = async () => {
