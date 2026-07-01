@@ -28,6 +28,7 @@ let jobRunning       = false;
 let cancelRequested  = false;
 let browser          = null;
 let pendingAuthCtx   = null; // context waiting for OTP
+let activeCtx        = null; // authenticated context — reused for publish
 
 function broadcast(type, message, extra = {}) {
   const payload = JSON.stringify({ type, message, ts: new Date().toISOString(), ...extra });
@@ -127,6 +128,7 @@ app.post("/api/publish/verify-otp", async (req, res) => {
 
     await pendingAuthCtx.storageState({ path: SESSION_FILE });
     broadcast("success", "Logged in to Topin ✓ — session saved");
+    activeCtx      = pendingAuthCtx; // reuse this context for publish (session already live)
     pendingAuthCtx = null;
     res.json({ status: "authenticated" });
   } catch (e) {
@@ -158,9 +160,14 @@ app.post("/api/publish/run", async (req, res) => {
     let ctx, pg;
     try {
       const b = await ensureBrowser();
-      ctx = fs.existsSync(SESSION_FILE)
-        ? await b.newContext({ storageState: SESSION_FILE })
-        : await b.newContext();
+      // Prefer the live authenticated context — avoids session transfer issues
+      if (activeCtx) {
+        ctx = activeCtx;
+      } else if (fs.existsSync(SESSION_FILE)) {
+        ctx = await b.newContext({ storageState: SESSION_FILE });
+      } else {
+        ctx = await b.newContext();
+      }
       pg = await ctx.newPage();
 
       broadcast("info", "Navigating to Topin config dashboard...");
@@ -247,7 +254,8 @@ app.post("/api/publish/run", async (req, res) => {
     } catch (e) {
       broadcast("error", `Publish failed: ${e.message}`);
     } finally {
-      if (ctx) await ctx.close().catch(() => {});
+      // Only close context if it's not the shared activeCtx
+      if (ctx && ctx !== activeCtx) await ctx.close().catch(() => {});
       jobRunning = false;
     }
   })();
