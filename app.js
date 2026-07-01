@@ -2201,7 +2201,16 @@ function renderAssessmentsTable() {
           : `<span style="font-size:.75rem;color:var(--muted)">${c.status === "submitted" ? "Ready to publish" : "—"}</span>`)
       : c.status === "submitted"
         ? `<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
-            <button class="btn btn-primary btn-sm" onclick="publishAssessment('${c._id}')">Publish</button>
+            <div style="position:relative;display:inline-flex">
+              <button class="btn btn-primary btn-sm" onclick="publishAssessment('${c._id}','main')" style="border-radius:6px 0 0 6px;border-right:1px solid rgba(255,255,255,.3)">Publish</button>
+              <button class="btn btn-primary btn-sm" onclick="togglePubDropdown('${c._id}')" style="border-radius:0 6px 6px 0;padding:0 9px;font-size:.85rem" title="Choose what to publish">▾</button>
+              <div id="pub-dd-${c._id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.12);min-width:170px;padding:4px 0">
+                <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;padding:6px 12px 4px">What to publish</div>
+                <button onclick="publishAssessment('${c._id}','main');togglePubDropdown('${c._id}')" class="pub-dd-item">✓ Main Assessment</button>
+                ${c.mock_assessment === "required" ? `<button onclick="publishAssessment('${c._id}','mock');togglePubDropdown('${c._id}')" class="pub-dd-item">📝 Mock Assessment</button>
+                <button onclick="publishAssessment('${c._id}','both');togglePubDropdown('${c._id}')" class="pub-dd-item">⚡ Both (Mock + Main)</button>` : ""}
+              </div>
+            </div>
             <button class="btn btn-outline btn-sm" onclick="publishToTopin('${c._id}')" style="font-size:.72rem;padding:3px 8px;color:#7c3aed;border-color:#c4b5fd" title="Push directly to Topin via local automation server">⚡ Publish to Topin</button>
           </div>`
         : c.status === "published"
@@ -2229,55 +2238,94 @@ function renderAssessmentsTable() {
   }).join("");
 }
 
-window.publishAssessment = (id) => {
+window.togglePubDropdown = (id) => {
+  const dd = document.getElementById(`pub-dd-${id}`);
+  if (!dd) return;
+  const isOpen = dd.style.display !== "none";
+  // Close all other dropdowns first
+  document.querySelectorAll('[id^="pub-dd-"]').forEach(el => el.style.display = "none");
+  dd.style.display = isOpen ? "none" : "block";
+  if (!isOpen) {
+    const close = (e) => { if (!dd.contains(e.target)) { dd.style.display = "none"; document.removeEventListener("click", close); } };
+    setTimeout(() => document.addEventListener("click", close), 0);
+  }
+};
+
+window.publishAssessment = (id, target = "main") => {
   const c = allConfigs.find(x => x._id === id);
   if (!c) return;
 
-  const checks = [
-    { label: "Main Config Link",   ok: !!c.config_link,           value: c.config_link      || "—" },
-    { label: "Mock Config Link",   ok: c.mock_assessment !== "required" || !!c.mock_config_link,
-                                                                   value: c.mock_assessment !== "required" ? "Not required" : (c.mock_config_link || "—") },
-    { label: "Assessment Date",    ok: !!c.assessment_date,        value: c.assessment_date  ? formatDate(c.assessment_date)  : "—" },
-    { label: "Assessment Time",    ok: !!c.assessment_start_time,  value: c.assessment_start_time || "—" },
-  ];
-  const allOk = checks.every(ch => ch.ok);
+  const isMock = target === "mock";
+  const isBoth = target === "both";
+  const isMain = target === "main";
 
-  const checklistHTML = checks.map(ch => `
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+  const targetLabel = isMock ? "Mock Assessment" : isBoth ? "Mock + Main Assessment" : "Main Assessment";
+  const tagPill = `<span style="background:${isMock ? "#ede9fe" : isBoth ? "#fef3c7" : "#dbeafe"};color:${isMock ? "#7c3aed" : isBoth ? "#92400e" : "#1d4ed8"};border-radius:20px;font-size:.72rem;font-weight:700;padding:2px 10px;display:inline-block;margin-left:8px">${targetLabel}</span>`;
+
+  const buildChecks = (mock) => [
+    { label: mock ? "Mock Config Link"    : "Main Config Link",   ok: !!(mock ? c.mock_config_link : c.config_link),          value: (mock ? c.mock_config_link : c.config_link) || "—" },
+    { label: mock ? "Mock Date"           : "Assessment Date",    ok: !!(mock ? c.mock_assessment_date : c.assessment_date),  value: formatDate((mock ? c.mock_assessment_date : c.assessment_date) || "") || "—" },
+    { label: mock ? "Mock Start Time"     : "Start Time",         ok: !!(mock ? c.mock_assessment_start_time : c.assessment_start_time), value: (mock ? c.mock_assessment_start_time : c.assessment_start_time) || "—" },
+    { label: mock ? "Mock End Time"       : "End Time",           ok: !!(mock ? c.mock_assessment_end_time   : c.assessment_end_time),   value: (mock ? c.mock_assessment_end_time   : c.assessment_end_time)   || "—" },
+  ];
+
+  const renderChecks = (checks) => checks.map(ch => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;background:${ch.ok ? "#dcfce7" : "#fee2e2"};color:${ch.ok ? "#15803d" : "#dc2626"}">${ch.ok ? "✓" : "✗"}</span>
-      <div>
-        <div style="font-size:.82rem;font-weight:600;color:var(--text)">${ch.label}</div>
-        <div style="font-size:.73rem;color:var(--muted);word-break:break-all">${escHtml(String(ch.value))}</div>
-      </div>
+      <div><div style="font-size:.82rem;font-weight:600;color:var(--text)">${ch.label}</div>
+      <div style="font-size:.73rem;color:var(--muted)">${escHtml(String(ch.value))}</div></div>
     </div>`).join("");
 
-  document.getElementById("publish-modal-body").innerHTML = `
-    <p style="color:var(--muted);font-size:.84rem;margin-bottom:12px">Publishing <strong>${escHtml(c.week)}${c.phase ? " — " + escHtml(c.phase) : ""}${c.batch ? ", " + escHtml(c.batch) : ""}</strong> to go-live on Topin.</p>
-    <div style="background:#f8fafc;border-radius:8px;padding:0 12px;margin-bottom:14px">${checklistHTML}</div>
-    ${!allOk ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:10px 12px;font-size:.8rem;color:#92400e">⚠ Some fields are missing. You can still publish, but students may not have complete information.</div>` : ""}`;
+  let bodyHTML = `<p style="color:var(--muted);font-size:.84rem;margin-bottom:12px">Marking <strong>${escHtml(c.week)}${c.phase ? " — " + escHtml(c.phase) : ""}${c.batch ? ", " + escHtml(c.batch) : ""}</strong> as published. ${tagPill}</p>`;
 
-  document.getElementById("publish-confirm-btn").onclick = () => confirmPublishAssessment(id);
+  if (isMain || isBoth) {
+    const checks = buildChecks(false);
+    const allOk  = checks.every(ch => ch.ok);
+    bodyHTML += `${isBoth ? `<div style="font-size:.78rem;font-weight:700;color:#1d4ed8;margin:10px 0 4px">Main Assessment</div>` : ""}
+      <div style="background:#f8fafc;border-radius:8px;padding:0 12px;margin-bottom:${allOk ? "0" : "10px"}">${renderChecks(checks)}</div>
+      ${!allOk ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;font-size:.78rem;color:#92400e;margin-bottom:10px">⚠ Some main assessment fields are missing.</div>` : ""}`;
+  }
+  if (isMock || isBoth) {
+    const checks = buildChecks(true);
+    const allOk  = checks.every(ch => ch.ok);
+    bodyHTML += `<div style="font-size:.78rem;font-weight:700;color:#7c3aed;margin:10px 0 4px">Mock Assessment</div>
+      <div style="background:#f8fafc;border-radius:8px;padding:0 12px;margin-bottom:${allOk ? "0" : "10px"}">${renderChecks(checks)}</div>
+      ${!allOk ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;font-size:.78rem;color:#92400e">⚠ Some mock assessment fields are missing.</div>` : ""}`;
+  }
+
+  document.getElementById("publish-modal-body").innerHTML = bodyHTML;
+  document.getElementById("publish-confirm-btn").onclick = () => confirmPublishAssessment(id, target);
   document.getElementById("publish-modal").classList.add("open");
 };
 
-window.confirmPublishAssessment = async (id) => {
+window.confirmPublishAssessment = async (id, target = "main") => {
   closeModal("publish-modal");
   const c = allConfigs.find(x => x._id === id);
   if (!c) return;
-  if (!c.config_link) { toast("Cannot publish — no config link available", "error"); return; }
+
+  const isMock = target === "mock";
+  const isBoth = target === "both";
+
+  // Validate required links
+  if ((target === "main" || isBoth) && !c.config_link) { toast("Cannot publish — Main config link is missing", "error"); return; }
+  if ((isMock || isBoth) && !c.mock_config_link)        { toast("Cannot publish — Mock config link is missing", "error"); return; }
+
+  const targetLabel = isMock ? "Mock Assessment" : isBoth ? "Mock + Main Assessment" : "Main Assessment";
   try {
-    await updateDoc(doc(db, "configs", id), {
-      status: "published",
+    const updates = {
+      status:       "published",
       published_at: serverTimestamp(),
       published_by: currentUserEmail,
+      publish_target: target,
       invites_sent: false
-    });
+    };
+    await updateDoc(doc(db, "configs", id), updates);
     const idx = allConfigs.findIndex(x => x._id === id);
-    if (idx >= 0) Object.assign(allConfigs[idx], { status: "published", published_at: new Date(), invites_sent: false });
+    if (idx >= 0) Object.assign(allConfigs[idx], { status: "published", published_at: new Date(), publish_target: target, invites_sent: false });
     renderAssessmentsTable();
-    toast("Assessment published — mark invites sent after notifying students", "success");
+    toast(`${targetLabel} published ✓`, "success");
     await createNotification("assessment", "published", "Assessment Published",
-      `${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? ", " + c.batch : ""} has been published.`);
+      `${targetLabel}: ${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? ", " + c.batch : ""} is now live.`);
   } catch (e) { toast("Error: " + e.message, "error"); }
 };
 
