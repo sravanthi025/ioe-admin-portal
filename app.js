@@ -2302,38 +2302,21 @@ window.confirmPublishAssessment = async (id, target = "main") => {
 
   const isMock = target === "mock";
   const isBoth = target === "both";
-  const targetLabel = isMock ? "Mock Assessment" : isBoth ? "Mock + Main Assessment" : "Main Assessment";
 
-  if ((target === "main" || isBoth) && !c.config_link)   { toast("Cannot publish — Main config link is missing", "error"); return; }
-  if ((isMock || isBoth) && !c.mock_config_link)          { toast("Cannot publish — Mock config link is missing", "error"); return; }
+  if ((target === "main" || isBoth) && !c.config_link)  { toast("Cannot publish — Main config link is missing", "error"); return; }
+  if ((isMock || isBoth) && !c.mock_config_link)         { toast("Cannot publish — Mock config link is missing", "error"); return; }
 
-  // Try Topin automation first if local server is reachable
-  const serverUrl  = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
-  let topinSuccess = false;
+  // Always publish via Topin automation server
+  const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
   try {
     const h = await fetch(`${serverUrl}/api/health`, { signal: AbortSignal.timeout(2000) });
-    if (h.ok) {
-      // Server is running — hand off to Topin automation (it will update Firestore on completion via SSE done event)
-      await publishToTopin(id, target);
-      topinSuccess = true;
-    }
-  } catch { /* server not running — fall through to manual publish */ }
+    if (!h.ok) throw new Error("unhealthy");
+  } catch {
+    toast("Topin automation server is not running. Open server/start.ps1 to start it, then try again.", "error");
+    return;
+  }
 
-  if (topinSuccess) return; // Topin flow handles Firestore update on success
-
-  // Fallback: mark as published in Firestore only (manual)
-  try {
-    await updateDoc(doc(db, "configs", id), {
-      status: "published", published_at: serverTimestamp(),
-      published_by: currentUserEmail, publish_target: target, invites_sent: false
-    });
-    const idx = allConfigs.findIndex(x => x._id === id);
-    if (idx >= 0) Object.assign(allConfigs[idx], { status: "published", published_at: new Date(), publish_target: target, invites_sent: false });
-    renderAssessmentsTable();
-    toast(`${targetLabel} marked as published ✓`, "success");
-    await createNotification("assessment", "published", "Assessment Published",
-      `${targetLabel}: ${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? ", " + c.batch : ""} is now live.`);
-  } catch (e) { toast("Error: " + e.message, "error"); }
+  await publishToTopin(id, target);
 };
 
 window.markInvitesSent = async (id) => {
