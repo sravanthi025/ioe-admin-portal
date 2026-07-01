@@ -115,7 +115,7 @@ app.post("/api/publish/start", async (req, res) => {
     // Must wait for networkidle so the redirect fully completes before querying DOM
     await pg.goto("https://config.topin.tech/", { waitUntil: "domcontentloaded", timeout: 30000 });
     if (!pg.url().includes("ccbp.in")) {
-      await pg.waitForURL(url => url.includes("ccbp.in") || url.includes("login"), { timeout: 15000 }).catch(() => {});
+      await pg.waitForURL(url => url.href.includes("ccbp.in") || url.href.includes("login"), { timeout: 15000 }).catch(() => {});
     }
     await pg.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
     broadcast("info", `Login page: ${pg.url().split("?")[0]}`);
@@ -209,7 +209,7 @@ app.post("/api/publish/verify-otp", async (req, res) => {
     await verifyBtn.click({ timeout: 10000 });
 
     // Wait until we leave the ccbp.in login domain
-    await pg.waitForURL(url => url.includes("config.topin.tech"), { timeout: 25000 });
+    await pg.waitForURL("**/config.topin.tech/**", { timeout: 25000 });
 
     if (onLoginPage(pg)) throw new Error("Still on login page — OTP may be incorrect or expired");
 
@@ -295,7 +295,7 @@ app.post("/api/publish/run", async (req, res) => {
 
       if (await createLink.isVisible({ timeout: 4000 }).catch(() => false)) {
         await createLink.click();
-        await pg.waitForURL(url => url.includes("create-assessment"), { timeout: 12000 }).catch(() => {});
+        await pg.waitForURL("**/create-assessment**", { timeout: 12000 }).catch(() => {});
         reachedPage = pg.url().includes("create-assessment") && !onLoginPage(pg);
       }
 
