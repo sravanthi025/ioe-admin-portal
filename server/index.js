@@ -64,7 +64,7 @@ async function isSessionValid() {
     const b   = await ensureBrowser();
     const ctx = await b.newContext({ storageState: SESSION_FILE });
     const pg  = await ctx.newPage();
-    await pg.goto("https://config.topin.tech/home", { waitUntil: "networkidle", timeout: 20000 });
+    await pg.goto("https://config.topin.tech/home", { waitUntil: "domcontentloaded", timeout: 20000 });
     const valid = pg.url().includes("config.topin.tech") && !pg.url().includes("accounts.ccbp.in");
     await ctx.close();
     return valid;
@@ -89,7 +89,7 @@ app.post("/api/publish/start", async (req, res) => {
     pendingAuthCtx = await b.newContext();
     const pg  = await pendingAuthCtx.newPage();
 
-    await pg.goto("https://config.topin.tech/", { waitUntil: "networkidle", timeout: 30000 });
+    await pg.goto("https://config.topin.tech/", { waitUntil: "domcontentloaded", timeout: 30000 });
 
     broadcast("info", `Entering mobile number: ${mobile.replace(/\d(?=\d{4})/g, "*")}`);
     await pg.fill('input[placeholder="Enter Number"]', mobile);
@@ -164,7 +164,7 @@ app.post("/api/publish/run", async (req, res) => {
       pg = await ctx.newPage();
 
       broadcast("info", "Navigating to Topin config dashboard...");
-      await pg.goto("https://config.topin.tech/home", { waitUntil: "networkidle", timeout: 30000 });
+      await pg.goto("https://config.topin.tech/home", { waitUntil: "domcontentloaded", timeout: 30000 });
 
       if (!pg.url().includes("config.topin.tech") || pg.url().includes("accounts.ccbp.in")) {
         broadcast("error", "Not authenticated. Log in via the Credentials tab first.");
@@ -175,7 +175,7 @@ app.post("/api/publish/run", async (req, res) => {
 
       // ── Navigate to create assessment ────────────────────────
       broadcast("info", "Opening Create Assessment page...");
-      await pg.goto("https://config.topin.tech/create-assessment", { waitUntil: "networkidle", timeout: 20000 });
+      await pg.goto("https://config.topin.tech/create-assessment", { waitUntil: "domcontentloaded", timeout: 20000 });
 
       // ── Assessment name ──────────────────────────────────────
       broadcast("info", "Filling assessment name...");
