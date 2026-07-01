@@ -161,24 +161,44 @@ app.post("/api/publish/verify-otp", async (req, res) => {
     const pages = pendingAuthCtx.pages();
     const pg    = pages[pages.length - 1];
     const otpStr = String(otp);
-    broadcast("info", "Filling OTP...");
+    // Wait for OTP screen to be fully rendered
+    await pg.waitForTimeout(600);
+    broadcast("info", `OTP page URL: ${pg.url().split("?")[0]}`);
 
-    // Strategy 1: individual single-character inputs (aria-label or maxlength=1)
-    const allInputs = await pg.locator('input').all();
-    const digitBoxes = [];
-    for (const inp of allInputs) {
-      const ml = await inp.getAttribute("maxlength").catch(() => null);
-      if (ml === "1") digitBoxes.push(inp);
+    // Log every visible input so we can see exactly what the page has
+    const allVisible = await pg.locator('input:visible').all();
+    broadcast("info", `Visible inputs found: ${allVisible.length}`);
+    for (let i = 0; i < Math.min(allVisible.length, 8); i++) {
+      const info = await allVisible[i].evaluate(el =>
+        `type=${el.type} maxLength=${el.maxLength} ph="${el.placeholder}" id="${el.id}" cls="${el.className.slice(0,40)}"`
+      ).catch(() => "?");
+      broadcast("info", `  input[${i}]: ${info}`);
     }
 
+    broadcast("info", "Filling OTP...");
+
+    // React sets maxLength as a DOM *property* (not HTML attribute), so use el.maxLength not getAttribute
+    const digitBoxes = [];
+    for (const inp of allVisible) {
+      const maxLen = await inp.evaluate(el => el.maxLength).catch(() => -1);
+      if (maxLen === 1) digitBoxes.push(inp);
+    }
+    broadcast("info", `Digit boxes (maxLength=1): ${digitBoxes.length}`);
+
     if (digitBoxes.length >= 6) {
+      // 6 individual OTP boxes — click + press each digit (simulates real keystrokes)
       for (let i = 0; i < 6; i++) {
         await digitBoxes[i].click();
-        await digitBoxes[i].fill(otpStr[i]);
-        await pg.waitForTimeout(80);
+        await pg.keyboard.press(otpStr[i]);
+        await pg.waitForTimeout(120);
       }
+    } else if (digitBoxes.length > 0 && digitBoxes.length < 6) {
+      // Fewer boxes than expected — fill what's visible and keyboard-type rest
+      await digitBoxes[0].click();
+      await pg.keyboard.type(otpStr, { delay: 120 });
     } else {
-      // Strategy 2: single OTP field
+      // No maxLength=1 boxes — could be a single OTP field or different structure
+      // Try single-field selectors first
       const singleOtp = pg.locator([
         'input[autocomplete="one-time-code"]',
         'input[maxlength="6"]',
@@ -188,15 +208,20 @@ app.post("/api/publish/verify-otp", async (req, res) => {
       ].join(", ")).first();
 
       if (await singleOtp.count()) {
+        await singleOtp.click();
         await singleOtp.fill(otpStr);
+      } else if (allVisible.length > 0) {
+        // Last resort: click first visible input and keyboard-type the OTP
+        // (works for any OTP implementation that auto-advances focus)
+        broadcast("info", "Using keyboard fallback to fill OTP...");
+        await allVisible[0].click();
+        await pg.waitForTimeout(200);
+        await pg.keyboard.type(otpStr, { delay: 150 });
       } else {
-        // Strategy 3: aria-label Digit N pattern
-        for (let i = 0; i < 6; i++) {
-          const inp = pg.locator(`[aria-label*="Digit ${i + 1}" i], [aria-label*="${i + 1}"]`).first();
-          if (await inp.count()) { await inp.fill(otpStr[i]); await pg.waitForTimeout(80); }
-        }
+        throw new Error("No input fields found on OTP page — cannot fill OTP");
       }
     }
+    await pg.waitForTimeout(300);
 
     broadcast("info", "Clicking Verify & Login...");
     const verifyBtn = pg.locator([
