@@ -161,77 +161,65 @@ app.post("/api/publish/verify-otp", async (req, res) => {
     const pages = pendingAuthCtx.pages();
     const pg    = pages[pages.length - 1];
     const otpStr = String(otp);
-    // Wait for OTP screen to be fully rendered
-    await pg.waitForTimeout(600);
-    broadcast("info", `OTP page URL: ${pg.url().split("?")[0]}`);
+    // Wait for OTP form — use the known button id from error logs
+    broadcast("info", "Waiting for OTP form...");
+    await pg.waitForSelector('#verifyOtpButton, [data-testid="multi-step-verify-otp-button"]', { timeout: 15000 });
+    await pg.waitForTimeout(600); // let React render OTP input boxes
 
-    // Log every visible input so we can see exactly what the page has
+    // Log all visible inputs for diagnostics
     const allVisible = await pg.locator('input:visible').all();
-    broadcast("info", `Visible inputs found: ${allVisible.length}`);
+    broadcast("info", `Visible inputs on OTP page: ${allVisible.length}`);
     for (let i = 0; i < Math.min(allVisible.length, 8); i++) {
-      const info = await allVisible[i].evaluate(el =>
-        `type=${el.type} maxLength=${el.maxLength} ph="${el.placeholder}" id="${el.id}" cls="${el.className.slice(0,40)}"`
+      const d = await allVisible[i].evaluate(el =>
+        `type=${el.type} maxLen=${el.maxLength} id="${el.id}" name="${el.name}" ph="${el.placeholder}"`
       ).catch(() => "?");
-      broadcast("info", `  input[${i}]: ${info}`);
+      broadcast("info", `  input[${i}]: ${d}`);
     }
 
     broadcast("info", "Filling OTP...");
 
-    // React sets maxLength as a DOM *property* (not HTML attribute), so use el.maxLength not getAttribute
-    const digitBoxes = [];
-    for (const inp of allVisible) {
-      const maxLen = await inp.evaluate(el => el.maxLength).catch(() => -1);
-      if (maxLen === 1) digitBoxes.push(inp);
-    }
-    broadcast("info", `Digit boxes (maxLength=1): ${digitBoxes.length}`);
-
-    if (digitBoxes.length >= 6) {
-      // 6 individual OTP boxes — click + press each digit (simulates real keystrokes)
-      for (let i = 0; i < 6; i++) {
-        await digitBoxes[i].click();
-        await pg.keyboard.press(otpStr[i]);
-        await pg.waitForTimeout(120);
-      }
-    } else if (digitBoxes.length > 0 && digitBoxes.length < 6) {
-      // Fewer boxes than expected — fill what's visible and keyboard-type rest
-      await digitBoxes[0].click();
-      await pg.keyboard.type(otpStr, { delay: 120 });
+    // Primary approach: click the FIRST visible input and type the full OTP string.
+    // Most React OTP components auto-advance focus after each digit, so typing
+    // the full string from box[0] fills all 6 boxes correctly.
+    // pressSequentially fires keydown+keypress+input+keyup per character — exactly
+    // what React controlled inputs need to update state and enable the submit button.
+    if (allVisible.length > 0) {
+      await allVisible[0].click();
+      await pg.waitForTimeout(200);
+      await allVisible[0].pressSequentially(otpStr, { delay: 120 });
     } else {
-      // No maxLength=1 boxes — could be a single OTP field or different structure
-      // Try single-field selectors first
-      const singleOtp = pg.locator([
-        'input[autocomplete="one-time-code"]',
-        'input[maxlength="6"]',
-        'input[placeholder*="OTP" i]',
-        'input[placeholder*="code" i]',
-        'input[placeholder*="verification" i]',
-      ].join(", ")).first();
-
-      if (await singleOtp.count()) {
-        await singleOtp.click();
-        await singleOtp.fill(otpStr);
-      } else if (allVisible.length > 0) {
-        // Last resort: click first visible input and keyboard-type the OTP
-        // (works for any OTP implementation that auto-advances focus)
-        broadcast("info", "Using keyboard fallback to fill OTP...");
-        await allVisible[0].click();
-        await pg.waitForTimeout(200);
-        await pg.keyboard.type(otpStr, { delay: 150 });
-      } else {
-        throw new Error("No input fields found on OTP page — cannot fill OTP");
-      }
+      throw new Error("No input fields found on OTP page");
     }
-    await pg.waitForTimeout(300);
+
+    await pg.waitForTimeout(500);
+
+    // If auto-advance didn't work (button still disabled), try filling each box individually
+    const btnDisabled = await pg.$eval(
+      '#verifyOtpButton, [data-testid="multi-step-verify-otp-button"]',
+      el => el.disabled
+    ).catch(() => false);
+
+    if (btnDisabled && allVisible.length >= 6) {
+      broadcast("info", "Auto-advance may not have worked — filling each box individually...");
+      for (let i = 0; i < 6; i++) {
+        await allVisible[i].click();
+        await allVisible[i].pressSequentially(otpStr[i], { delay: 80 });
+        await pg.waitForTimeout(100);
+      }
+      await pg.waitForTimeout(400);
+    }
+
+    // Wait for Verify button to become enabled (OTP filled → button enables)
+    broadcast("info", "Waiting for Verify button to enable...");
+    await pg.waitForSelector(
+      '#verifyOtpButton:not([disabled]), [data-testid="multi-step-verify-otp-button"]:not([disabled])',
+      { timeout: 8000 }
+    ).catch(() => broadcast("info", "Verify button still disabled after filling — attempting click anyway"));
 
     broadcast("info", "Clicking Verify & Login...");
-    const verifyBtn = pg.locator([
-      'button:has-text("Verify & Login")',
-      'button:has-text("Verify and Login")',
-      'button:has-text("Verify OTP")',
-      'button:has-text("Verify")',
-      'button[type="submit"]',
-    ].join(", ")).first();
-    await verifyBtn.click({ timeout: 10000 });
+    // Use the known button ID for a reliable click
+    await pg.click('#verifyOtpButton, [data-testid="multi-step-verify-otp-button"]', { timeout: 8000 })
+      .catch(() => pg.getByRole("button", { name: /verify/i }).click({ timeout: 5000 }));
 
     // Wait until we leave the ccbp.in login domain
     await pg.waitForURL("**/config.topin.tech/**", { timeout: 25000 });
