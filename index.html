@@ -149,6 +149,10 @@
         <span>Assessment Details</span>
         <span id="ad-breach-badge" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:.64rem;margin-left:auto;font-weight:700">0</span>
       </div>
+      <div class="nav-item" onclick="switchPage('ioe-assessments')" id="nav-ioe-assessments">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <span>IOE Assessments</span>
+      </div>
       <div class="nav-section" id="nav-section-teams">Teams</div>
       <div class="nav-item" onclick="switchPage('teams')" id="nav-teams">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -1108,6 +1112,44 @@
         </div>
       </div>
     </div><!-- /page-assignments -->
+
+    <!-- IOE ASSESSMENTS (embedded external assessment config manager) -->
+    <div class="page" id="page-ioe-assessments" style="display:flex;flex-direction:column;padding:0;height:calc(100vh - 56px);overflow:hidden">
+      <!-- Header bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--card);flex-shrink:0">
+        <div>
+          <div style="font-size:1rem;font-weight:700;color:var(--text)">Intensive Offline — Assessment Config Manager</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px">Live view from the IOE assessment configuration system</div>
+        </div>
+        <a href="https://kiran-panasa.github.io/assessment-config-manager/assessments" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--primary);color:#fff;border-radius:7px;font-size:.82rem;font-weight:600;text-decoration:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Open Full Page
+        </a>
+      </div>
+      <!-- Iframe -->
+      <div style="flex:1;position:relative;overflow:hidden">
+        <iframe
+          id="ioe-assessments-frame"
+          src="https://kiran-panasa.github.io/assessment-config-manager/assessments"
+          style="width:100%;height:100%;border:none;display:block"
+          loading="lazy"
+          title="IOE Assessment Config Manager"
+          allowfullscreen
+        ></iframe>
+        <!-- Fallback shown if iframe is blocked -->
+        <div id="ioe-frame-fallback" style="display:none;position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <div style="font-size:.9rem;color:var(--text-sub);text-align:center">
+            The assessment manager could not be embedded.<br>
+            <a href="https://kiran-panasa.github.io/assessment-config-manager/assessments" target="_blank" rel="noopener"
+               style="color:var(--primary);font-weight:600;margin-top:8px;display:inline-block">
+              Open in new tab →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div><!-- /page-ioe-assessments -->
 
     <!-- ABOUT -->
     <div class="page" id="page-about">

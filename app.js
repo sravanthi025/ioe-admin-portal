@@ -215,17 +215,17 @@ window.exitGuestMode = async () => {
 
 function applyRoleAccess(team) {
   const access = {
-    "admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","teams"],
-    "Admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","teams"],
-    "On Ground Team":      ["dashboard","students","syllabus","assessment-details","assignments"],
-    "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments"],
-    "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments"],
-    "Instructor":          ["dashboard","assignments"],
-    "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments"],
+    "admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","teams"],
+    "Admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","teams"],
+    "On Ground Team":      ["dashboard","students","syllabus","assessment-details","assignments","ioe-assessments"],
+    "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments","ioe-assessments"],
+    "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments","ioe-assessments"],
+    "Instructor":          ["dashboard","assignments","ioe-assessments"],
+    "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments"],
   };
   const allowed = access[team] || access["admin"];
 
-  ["dashboard","students","syllabus","configs","assignments","assessments","assessment-details","teams"].forEach(p => {
+  ["dashboard","students","syllabus","configs","assignments","assessments","assessment-details","ioe-assessments","teams"].forEach(p => {
     const el = document.getElementById(`nav-${p}`);
     if (el) el.style.display = allowed.includes(p) ? "flex" : "none";
   });
@@ -234,7 +234,7 @@ function applyRoleAccess(team) {
   if (navAbout) navAbout.style.display = "flex";
   [["nav-section-main",       ["dashboard","students"]],
    ["nav-section-content",    ["syllabus","configs","assignments"]],
-   ["nav-section-operations", ["assessments","assessment-details"]],
+   ["nav-section-operations", ["assessments","assessment-details","ioe-assessments"]],
    ["nav-section-teams",      ["teams"]]
   ].forEach(([id, pages]) => {
     const el = document.getElementById(id);
@@ -262,8 +262,9 @@ window.switchPage = (page) => {
     syllabus:            { title: "Syllabus",           icon: "📖" },
     configs:             { title: "Topin Configs",      icon: "🔗" },
     assessments:         { title: "Assessments",        icon: "✓" },
-    "assessment-details":{ title: "Assessment Details", icon: "📅" },
-    teams:               { title: "Teams",              icon: "🛡" },
+    "assessment-details":  { title: "Assessment Details",              icon: "📅" },
+    "ioe-assessments":     { title: "IOE Assessment Config Manager",   icon: "🗂" },
+    teams:                 { title: "Teams",                           icon: "🛡" },
     assignments:         { title: "Assignments",         icon: "📄" },
     about:               { title: "About",              icon: "ℹ" },
   };
@@ -280,6 +281,7 @@ window.switchPage = (page) => {
   if (page === "assessments")        loadAssessments();
   if (page === "assessment-details") loadAssessmentDetails();
   if (page === "assignments")        loadAssignments();
+  if (page === "ioe-assessments")    loadIoeAssessments();
 };
 
 // ── DASHBOARD ─────────────────────────────────────────────────
@@ -3712,6 +3714,31 @@ async function loadAssignments() {
   } catch(e) {
     setTbody("assign-tbody", 8, "Error: " + e.message);
   }
+}
+
+// ── IOE ASSESSMENTS (external embed) ─────────────────────────
+const IOE_ASSESS_URL = "https://kiran-panasa.github.io/assessment-config-manager/assessments";
+
+function loadIoeAssessments() {
+  const frame    = document.getElementById("ioe-assessments-frame");
+  const fallback = document.getElementById("ioe-frame-fallback");
+  if (!frame) return;
+  // Reload the iframe each time we navigate to the page so it stays fresh
+  frame.src = IOE_ASSESS_URL;
+  frame.onload = () => {
+    // If the frame loaded a 404/error page, show the fallback link
+    try {
+      const title = frame.contentDocument?.title || "";
+      if (title.toLowerCase().includes("404") || title.toLowerCase().includes("not found")) {
+        frame.style.display = "none";
+        if (fallback) fallback.style.display = "flex";
+      }
+    } catch { /* cross-origin — can't read title; assume OK */ }
+  };
+  frame.onerror = () => {
+    frame.style.display = "none";
+    if (fallback) fallback.style.display = "flex";
+  };
 }
 
 function renderAssignSubjectsCell(subjects, id) {
