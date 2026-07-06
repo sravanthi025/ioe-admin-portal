@@ -11,10 +11,8 @@ async function getIcDb() {
   const { initializeApp, cert, getApps } = await import("firebase-admin/app");
   const { getFirestore }                  = await import("firebase-admin/firestore");
   const existing = getApps().find(a => a.name === "ic");
-  const app = existing || initializeApp(
-    { credential: cert(JSON.parse(process.env.IC_SERVICE_ACCOUNT)) },
-    "ic"
-  );
+  const sa  = JSON.parse(Buffer.from(process.env.IC_SA_B64, "base64").toString("utf8"));
+  const app = existing || initializeApp({ credential: cert(sa) }, "ic");
   icDb = getFirestore(app);
   return icDb;
 }
@@ -23,10 +21,10 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
 
-  if (!process.env.IC_SERVICE_ACCOUNT) {
+  if (!process.env.IC_SA_B64) {
     return res.status(503).json({
       ok: false,
-      error: "IC_SERVICE_ACCOUNT env var not set in Vercel. Add it via Vercel Dashboard → Project → Settings → Environment Variables."
+      error: "IC_SA_B64 env var not set in Vercel."
     });
   }
 
