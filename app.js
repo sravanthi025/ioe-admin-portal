@@ -95,7 +95,6 @@ onAuthStateChanged(auth, async user => {
     applyRoleAccess(currentUserTeam);
     loadNotifCount();
     loadSLAEmailSettings();
-    loadBatchSchedules();
   } else {
     isGuest          = false;
     currentUserEmail = "";
