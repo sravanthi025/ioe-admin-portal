@@ -1,13 +1,39 @@
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   collection, addDoc, getDocs, deleteDoc,
-  doc, updateDoc, query, orderBy, where, serverTimestamp, writeBatch, arrayUnion
+  doc, updateDoc, query, orderBy, where, serverTimestamp, writeBatch, arrayUnion,
+  getFirestore
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
-  signInAnonymously
+  signInAnonymously, getAuth
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig, db, auth } from "./firebase-config.js";
+
+// ── INTERVIEW COORDINATOR FIREBASE (read-only) ─────────────────
+const IC_CONFIG = {
+  apiKey:            "AIzaSyAxFk4P_GrS2DYsRVy9KVnaOIH1NCR38G8",
+  authDomain:        "interview-coordinator-d798a.firebaseapp.com",
+  projectId:         "interview-coordinator-d798a",
+  storageBucket:     "interview-coordinator-d798a.firebasestorage.app",
+  messagingSenderId: "775457805753",
+  appId:             "1:775457805753:web:ebeb6f18523c8502be5268",
+};
+let icApp  = null;
+let icDb   = null;
+let icAuth = null;
+function getIcDb() {
+  if (!icDb) {
+    icApp  = initializeApp(IC_CONFIG, "ic");
+    icDb   = getFirestore(icApp);
+    icAuth = getAuth(icApp);
+  }
+  return icDb;
+}
+async function ensureIcAuth() {
+  if (!icAuth) getIcDb();
+  if (!icAuth.currentUser) await signInAnonymously(icAuth).catch(() => {});
+}
 
 // ── STATE ─────────────────────────────────────────────────────
 let allStudents     = [];
@@ -3728,12 +3754,29 @@ const IV_STATUS_META = {
 };
 
 async function loadInterviews() {
-  ["iv-stat-total","iv-stat-pending","iv-stat-scheduled","iv-stat-completed","iv-stat-noshow","iv-stat-cancelled"]
-    .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
+  const statIds = ["iv-stat-total","iv-stat-pending","iv-stat-scheduled","iv-stat-completed","iv-stat-noshow","iv-stat-cancelled"];
+  statIds.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
   setTbody("iv-tbody", 6, "Loading...");
   try {
-    const snap = await getDocs(query(collection(db, "interviews"), orderBy("created_at", "desc")));
-    const rows = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    await ensureIcAuth();
+    const icDbRef = getIcDb();
+    // Query IC interviews — filter to Intensive Offline program
+    let rows = [];
+    try {
+      const snap = await getDocs(query(collection(icDbRef, "interviews"), where("program", "==", "Intensive Offline")));
+      rows = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    } catch {
+      // program field may not exist on interviews — fall back to all
+      const snap = await getDocs(collection(icDbRef, "interviews"));
+      rows = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    }
+
+    // Sort newest first by scheduledDate
+    rows.sort((a, b) => {
+      const da = a.scheduledDate || a.createdAt || "";
+      const db2 = b.scheduledDate || b.createdAt || "";
+      return da < db2 ? 1 : -1;
+    });
 
     const normStatus = s => (s === "pending_acceptance" ? "pending" : s) || "pending";
     const counts = { pending:0, scheduled:0, completed:0, no_show:0, cancelled:0 };
@@ -3747,17 +3790,17 @@ async function loadInterviews() {
     document.getElementById("iv-stat-cancelled").textContent = counts.cancelled;
 
     const lu = document.getElementById("iv-last-updated");
-    if (lu) lu.textContent = "Updated " + new Date().toLocaleTimeString();
+    if (lu) lu.textContent = "Live from Interview Coordinator · " + new Date().toLocaleTimeString();
 
-    if (!rows.length) { setTbody("iv-tbody", 6, "No interview records found"); return; }
+    if (!rows.length) { setTbody("iv-tbody", 6, "No interview records found in Interview Coordinator"); return; }
 
     document.getElementById("iv-tbody").innerHTML = rows.slice(0, 20).map((r, i) => {
       const sm = IV_STATUS_META[r.status] || IV_STATUS_META.pending;
-      const name  = r.candidateName  || r.student_name  || "—";
-      const email = r.candidateEmail || r.student_email || "";
-      const itvr  = r.interviewerEmail || r.interviewer_email || "—";
-      const dt    = r.scheduledDate || r.scheduled_date || "";
-      const tm    = r.scheduledTime || r.scheduled_time || "";
+      const name  = r.candidateName  || r.studentName  || "—";
+      const email = r.candidateEmail || r.studentEmail || "";
+      const itvr  = r.interviewerEmail || r.interviewerName || "—";
+      const dt    = r.scheduledDate || "";
+      const tm    = r.scheduledTime || "";
       const dateStr = dt ? `${dt}${tm ? " " + tm : ""}` : '<span style="color:var(--muted)">—</span>';
       return `<tr>
         <td style="color:var(--muted);font-size:.8rem">${i+1}</td>
@@ -3772,9 +3815,8 @@ async function loadInterviews() {
       </tr>`;
     }).join("");
   } catch(e) {
-    setTbody("iv-tbody", 6, "Unable to load: " + e.message);
-    ["iv-stat-total","iv-stat-pending","iv-stat-scheduled","iv-stat-completed","iv-stat-noshow","iv-stat-cancelled"]
-      .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "0"; });
+    setTbody("iv-tbody", 6, "Unable to load from Interview Coordinator: " + e.message);
+    statIds.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
   }
 }
 
