@@ -32,7 +32,19 @@ function getIcDb() {
 }
 async function ensureIcAuth() {
   if (!icAuth) getIcDb();
-  if (!icAuth.currentUser) await signInAnonymously(icAuth).catch(() => {});
+  // Wait for Firebase to restore any persisted auth state before checking currentUser
+  if (typeof icAuth.authStateReady === "function") await icAuth.authStateReady();
+  if (!icAuth.currentUser) {
+    try {
+      await signInAnonymously(icAuth);
+    } catch(e) {
+      if (e.code === "auth/operation-not-allowed") {
+        throw new Error("Anonymous auth is disabled in Interview Coordinator Firebase. " +
+          "Ask Kiran to go to Firebase Console → Authentication → Sign-in providers → Anonymous → Enable.");
+      }
+      throw e;
+    }
+  }
 }
 
 // ── STATE ─────────────────────────────────────────────────────
@@ -3760,21 +3772,25 @@ async function loadInterviews() {
   try {
     await ensureIcAuth();
     const icDbRef = getIcDb();
-    // Query IC interviews — filter to Intensive Offline program
+
+    // Fetch all interviews from IC — fall back gracefully if program filter fails
     let rows = [];
     try {
       const snap = await getDocs(query(collection(icDbRef, "interviews"), where("program", "==", "Intensive Offline")));
       rows = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+      // If filter returned 0, try without filter (program field may live on candidate doc)
+      if (!rows.length) {
+        const all = await getDocs(collection(icDbRef, "interviews"));
+        rows = all.docs.map(d => ({ _id: d.id, ...d.data() }));
+      }
     } catch {
-      // program field may not exist on interviews — fall back to all
-      const snap = await getDocs(collection(icDbRef, "interviews"));
-      rows = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+      const all = await getDocs(collection(icDbRef, "interviews"));
+      rows = all.docs.map(d => ({ _id: d.id, ...d.data() }));
     }
 
-    // Sort newest first by scheduledDate
     rows.sort((a, b) => {
-      const da = a.scheduledDate || a.createdAt || "";
-      const db2 = b.scheduledDate || b.createdAt || "";
+      const da = a.scheduledDate || a.createdAt?.toDate?.()?.toISOString() || "";
+      const db2 = b.scheduledDate || b.createdAt?.toDate?.()?.toISOString() || "";
       return da < db2 ? 1 : -1;
     });
 
@@ -3814,9 +3830,18 @@ async function loadInterviews() {
         <td><span style="background:${sm.bg};color:${sm.color};border-radius:6px;padding:3px 9px;font-size:.74rem;font-weight:600;white-space:nowrap">${sm.label}</span></td>
       </tr>`;
     }).join("");
+
   } catch(e) {
-    setTbody("iv-tbody", 6, "Unable to load from Interview Coordinator: " + e.message);
+    const isPermission = e.message?.includes("permission") || e.message?.includes("Missing");
+    const isAuthDisabled = e.message?.includes("Anonymous auth");
+    const hint = isAuthDisabled
+      ? e.message
+      : isPermission
+        ? "Firestore permission denied. Ask Kiran to enable Anonymous Authentication in Interview Coordinator Firebase Console → Authentication → Sign-in providers → Anonymous → Enable."
+        : e.message;
+
     statIds.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
+    setTbody("iv-tbody", 6, hint);
   }
 }
 
