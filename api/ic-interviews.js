@@ -30,10 +30,14 @@ export default async function handler(req, res) {
 
   try {
     const db   = await getIcDb();
-    // DEBUG: fetch first 5 docs unfiltered to inspect actual field names/values
-    const snap = await db.collection("interviews").limit(5).get();
-    const sample = snap.docs.map(d => d.data());
-    return res.json({ ok: true, debug: true, sample });
+    // DEBUG: get all docs, return unique templateNames with counts
+    const snap = await db.collection("interviews").get();
+    const counts = {};
+    snap.docs.forEach(d => {
+      const t = d.data().templateName || "(none)";
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return res.json({ ok: true, debug: true, total: snap.size, templateCounts: counts });
   } catch(e) {
     res.status(500).json({ ok: false, error: e.message });
   }
