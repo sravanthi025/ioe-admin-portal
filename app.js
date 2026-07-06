@@ -215,17 +215,17 @@ window.exitGuestMode = async () => {
 
 function applyRoleAccess(team) {
   const access = {
-    "admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","teams"],
-    "Admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","teams"],
-    "On Ground Team":      ["dashboard","students","syllabus","assessment-details","assignments","ioe-assessments"],
-    "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments","ioe-assessments"],
-    "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments","ioe-assessments"],
-    "Instructor":          ["dashboard","assignments","ioe-assessments"],
-    "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments"],
+    "admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","interviews","teams"],
+    "Admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","interviews","teams"],
+    "On Ground Team":      ["dashboard","students","syllabus","assessment-details","assignments","ioe-assessments","interviews"],
+    "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments","ioe-assessments","interviews"],
+    "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments","ioe-assessments","interviews"],
+    "Instructor":          ["dashboard","assignments","ioe-assessments","interviews"],
+    "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","interviews"],
   };
   const allowed = access[team] || access["admin"];
 
-  ["dashboard","students","syllabus","configs","assignments","assessments","assessment-details","ioe-assessments","teams"].forEach(p => {
+  ["dashboard","students","syllabus","configs","assignments","assessments","assessment-details","ioe-assessments","interviews","teams"].forEach(p => {
     const el = document.getElementById(`nav-${p}`);
     if (el) el.style.display = allowed.includes(p) ? "flex" : "none";
   });
@@ -234,7 +234,7 @@ function applyRoleAccess(team) {
   if (navAbout) navAbout.style.display = "flex";
   [["nav-section-main",       ["dashboard","students"]],
    ["nav-section-content",    ["syllabus","configs","assignments"]],
-   ["nav-section-operations", ["assessments","assessment-details","ioe-assessments"]],
+   ["nav-section-operations", ["assessments","assessment-details","ioe-assessments","interviews"]],
    ["nav-section-teams",      ["teams"]]
   ].forEach(([id, pages]) => {
     const el = document.getElementById(id);
@@ -264,6 +264,7 @@ window.switchPage = (page) => {
     assessments:         { title: "Assessments",        icon: "✓" },
     "assessment-details":  { title: "Assessment Details",              icon: "📅" },
     "ioe-assessments":     { title: "IOE Assessment Config Manager",   icon: "🗂" },
+    "interviews":          { title: "Interview Coordinator",           icon: "👥" },
     teams:                 { title: "Teams",                           icon: "🛡" },
     assignments:         { title: "Assignments",         icon: "📄" },
     about:               { title: "About",              icon: "ℹ" },
@@ -282,6 +283,7 @@ window.switchPage = (page) => {
   if (page === "assessment-details") loadAssessmentDetails();
   if (page === "assignments")        loadAssignments();
   if (page === "ioe-assessments")    loadIoeAssessments();
+  if (page === "interviews")         loadInterviews();
 };
 
 // ── DASHBOARD ─────────────────────────────────────────────────
@@ -3715,6 +3717,27 @@ async function loadAssignments() {
     setTbody("assign-tbody", 8, "Error: " + e.message);
   }
 }
+
+// ── INTERVIEWS (embedded Interview Coordinator) ───────────────
+const INTERVIEW_COORDINATOR_URL = "https://interview-coordinator.vercel.app/";
+
+function loadInterviews() {
+  const frame    = document.getElementById("interviews-frame");
+  const fallback = document.getElementById("interviews-frame-fallback");
+  if (!frame) return;
+  if (frame.src === "about:blank" || frame.src === "") {
+    frame.src = INTERVIEW_COORDINATOR_URL;
+  }
+  frame.onerror = () => {
+    frame.style.display = "none";
+    if (fallback) { fallback.style.display = "flex"; }
+  };
+}
+
+window.reloadInterviewFrame = () => {
+  const frame = document.getElementById("interviews-frame");
+  if (frame) frame.src = INTERVIEW_COORDINATOR_URL;
+};
 
 // ── IOE ASSESSMENTS (external embed) ─────────────────────────
 const IOE_ASSESS_URL = "https://kiran-panasa.github.io/assessment-config-manager/assessments";

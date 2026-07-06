@@ -153,6 +153,10 @@
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>IOE Assessments</span>
       </div>
+      <div class="nav-item" onclick="switchPage('interviews')" id="nav-interviews">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Interviews</span>
+      </div>
       <div class="nav-section" id="nav-section-teams">Teams</div>
       <div class="nav-item" onclick="switchPage('teams')" id="nav-teams">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -1150,6 +1154,52 @@
         </div>
       </div>
     </div><!-- /page-ioe-assessments -->
+
+    <!-- INTERVIEWS (embedded Interview Coordinator) -->
+    <div class="page" id="page-interviews" style="display:flex;flex-direction:column;padding:0;height:calc(100vh - 56px);overflow:hidden">
+      <!-- Header bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--card);flex-shrink:0">
+        <div>
+          <div style="font-size:1rem;font-weight:700;color:var(--text)">Interview Coordinator — Intensive Offline</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px">Schedule, track and manage human interviews for IOE students across phases · batches · weeks</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="reloadInterviewFrame()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:7px;font-size:.8rem;font-weight:500;color:var(--text-sub);cursor:pointer">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Refresh
+          </button>
+          <a href="https://interview-coordinator.vercel.app/" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--primary);color:#fff;border-radius:7px;font-size:.82rem;font-weight:600;text-decoration:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Open Full Page
+          </a>
+        </div>
+      </div>
+      <!-- Iframe -->
+      <div style="flex:1;position:relative;overflow:hidden">
+        <iframe
+          id="interviews-frame"
+          src="about:blank"
+          style="width:100%;height:100%;border:none;display:block"
+          loading="lazy"
+          title="Interview Coordinator"
+          allowfullscreen
+        ></iframe>
+        <!-- Fallback if iframe blocked -->
+        <div id="interviews-frame-fallback" style="display:none;position:absolute;inset:0;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div>
+            <div style="font-size:.9rem;font-weight:600;color:var(--text-sub);margin-bottom:6px">Interview Coordinator cannot be embedded</div>
+            <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">The site may block embedding via X-Frame-Options.</div>
+            <a href="https://interview-coordinator.vercel.app/" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:var(--primary);color:#fff;border-radius:7px;font-size:.84rem;font-weight:600;text-decoration:none">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Open Interview Coordinator
+            </a>
+          </div>
+        </div>
+      </div>
+    </div><!-- /page-interviews -->
 
     <!-- ABOUT -->
     <div class="page" id="page-about">
