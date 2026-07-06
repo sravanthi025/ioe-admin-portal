@@ -3768,7 +3768,7 @@ async function loadInterviews() {
         </td>
         <td style="font-size:.82rem;color:var(--text-sub)">${escHtml(r.interviewerEmail||"—")}</td>
         <td style="font-size:.82rem">${dateStr}</td>
-        <td style="text-align:center;font-weight:600;color:var(--text-sub)">R${r.round||1}</td>
+        <td style="text-align:center;font-weight:600;color:var(--text-sub)">${typeof r.round==='number'?`Round ${r.round}`:(r.round||'Round 1')}</td>
         <td><span style="background:${sm.bg};color:${sm.color};border-radius:6px;padding:3px 9px;font-size:.74rem;font-weight:600;white-space:nowrap">${sm.label}</span></td>
       </tr>`;
     }).join("");
