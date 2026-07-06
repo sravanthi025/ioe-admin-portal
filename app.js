@@ -1,51 +1,13 @@
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   collection, addDoc, getDocs, deleteDoc,
-  doc, updateDoc, query, orderBy, where, serverTimestamp, writeBatch, arrayUnion,
-  getFirestore
+  doc, updateDoc, query, orderBy, where, serverTimestamp, writeBatch, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
-  signInAnonymously, getAuth
+  signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig, db, auth } from "./firebase-config.js";
-
-// ── INTERVIEW COORDINATOR FIREBASE (read-only) ─────────────────
-const IC_CONFIG = {
-  apiKey:            "AIzaSyAxFk4P_GrS2DYsRVy9KVnaOIH1NCR38G8",
-  authDomain:        "interview-coordinator-d798a.firebaseapp.com",
-  projectId:         "interview-coordinator-d798a",
-  storageBucket:     "interview-coordinator-d798a.firebasestorage.app",
-  messagingSenderId: "775457805753",
-  appId:             "1:775457805753:web:ebeb6f18523c8502be5268",
-};
-let icApp  = null;
-let icDb   = null;
-let icAuth = null;
-function getIcDb() {
-  if (!icDb) {
-    icApp  = initializeApp(IC_CONFIG, "ic");
-    icDb   = getFirestore(icApp);
-    icAuth = getAuth(icApp);
-  }
-  return icDb;
-}
-async function ensureIcAuth() {
-  if (!icAuth) getIcDb();
-  // Wait for Firebase to restore any persisted auth state before checking currentUser
-  if (typeof icAuth.authStateReady === "function") await icAuth.authStateReady();
-  if (!icAuth.currentUser) {
-    try {
-      await signInAnonymously(icAuth);
-    } catch(e) {
-      if (e.code === "auth/operation-not-allowed") {
-        throw new Error("Anonymous auth is disabled in Interview Coordinator Firebase. " +
-          "Ask Kiran to go to Firebase Console → Authentication → Sign-in providers → Anonymous → Enable.");
-      }
-      throw e;
-    }
-  }
-}
 
 // ── STATE ─────────────────────────────────────────────────────
 let allStudents     = [];
@@ -3770,29 +3732,13 @@ async function loadInterviews() {
   statIds.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
   setTbody("iv-tbody", 6, "Loading...");
   try {
-    await ensureIcAuth();
-    const icDbRef = getIcDb();
+    const resp = await fetch("/api/ic-interviews");
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || "Failed to load");
 
-    // Fetch all interviews from IC — fall back gracefully if program filter fails
-    let rows = [];
-    try {
-      const snap = await getDocs(query(collection(icDbRef, "interviews"), where("program", "==", "Intensive Offline")));
-      rows = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
-      // If filter returned 0, try without filter (program field may live on candidate doc)
-      if (!rows.length) {
-        const all = await getDocs(collection(icDbRef, "interviews"));
-        rows = all.docs.map(d => ({ _id: d.id, ...d.data() }));
-      }
-    } catch {
-      const all = await getDocs(collection(icDbRef, "interviews"));
-      rows = all.docs.map(d => ({ _id: d.id, ...d.data() }));
-    }
-
-    rows.sort((a, b) => {
-      const da = a.scheduledDate || a.createdAt?.toDate?.()?.toISOString() || "";
-      const db2 = b.scheduledDate || b.createdAt?.toDate?.()?.toISOString() || "";
-      return da < db2 ? 1 : -1;
-    });
+    const rows = (data.interviews || []).sort((a, b) =>
+      (a.scheduledDate || "") < (b.scheduledDate || "") ? 1 : -1
+    );
 
     const normStatus = s => (s === "pending_acceptance" ? "pending" : s) || "pending";
     const counts = { pending:0, scheduled:0, completed:0, no_show:0, cancelled:0 };
@@ -3808,40 +3754,28 @@ async function loadInterviews() {
     const lu = document.getElementById("iv-last-updated");
     if (lu) lu.textContent = "Live from Interview Coordinator · " + new Date().toLocaleTimeString();
 
-    if (!rows.length) { setTbody("iv-tbody", 6, "No interview records found in Interview Coordinator"); return; }
+    if (!rows.length) { setTbody("iv-tbody", 6, "No interviews found in Interview Coordinator"); return; }
 
     document.getElementById("iv-tbody").innerHTML = rows.slice(0, 20).map((r, i) => {
-      const sm = IV_STATUS_META[r.status] || IV_STATUS_META.pending;
-      const name  = r.candidateName  || r.studentName  || "—";
-      const email = r.candidateEmail || r.studentEmail || "";
-      const itvr  = r.interviewerEmail || r.interviewerName || "—";
-      const dt    = r.scheduledDate || "";
-      const tm    = r.scheduledTime || "";
+      const sm      = IV_STATUS_META[r.status] || IV_STATUS_META.pending;
+      const dt      = r.scheduledDate || "";
+      const tm      = r.scheduledTime || "";
       const dateStr = dt ? `${dt}${tm ? " " + tm : ""}` : '<span style="color:var(--muted)">—</span>';
       return `<tr>
         <td style="color:var(--muted);font-size:.8rem">${i+1}</td>
         <td>
-          <div style="font-weight:600;font-size:.85rem">${escHtml(name)}</div>
-          <div style="font-size:.75rem;color:var(--muted)">${escHtml(email)}</div>
+          <div style="font-weight:600;font-size:.85rem">${escHtml(r.candidateName||"—")}</div>
+          <div style="font-size:.75rem;color:var(--muted)">${escHtml(r.candidateEmail||"")}</div>
         </td>
-        <td style="font-size:.82rem;color:var(--text-sub)">${escHtml(itvr)}</td>
+        <td style="font-size:.82rem;color:var(--text-sub)">${escHtml(r.interviewerEmail||"—")}</td>
         <td style="font-size:.82rem">${dateStr}</td>
         <td style="text-align:center;font-weight:600;color:var(--text-sub)">R${r.round||1}</td>
         <td><span style="background:${sm.bg};color:${sm.color};border-radius:6px;padding:3px 9px;font-size:.74rem;font-weight:600;white-space:nowrap">${sm.label}</span></td>
       </tr>`;
     }).join("");
-
   } catch(e) {
-    const isPermission = e.message?.includes("permission") || e.message?.includes("Missing");
-    const isAuthDisabled = e.message?.includes("Anonymous auth");
-    const hint = isAuthDisabled
-      ? e.message
-      : isPermission
-        ? "Firestore permission denied. Ask Kiran to enable Anonymous Authentication in Interview Coordinator Firebase Console → Authentication → Sign-in providers → Anonymous → Enable."
-        : e.message;
-
     statIds.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
-    setTbody("iv-tbody", 6, hint);
+    setTbody("iv-tbody", 6, e.message);
   }
 }
 
