@@ -215,17 +215,17 @@ window.exitGuestMode = async () => {
 
 function applyRoleAccess(team) {
   const access = {
-    "admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","interviews","teams"],
-    "Admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","interviews","teams"],
-    "On Ground Team":      ["dashboard","students","syllabus","assessment-details","assignments","ioe-assessments","interviews"],
-    "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments","ioe-assessments","interviews"],
-    "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments","ioe-assessments","interviews"],
-    "Instructor":          ["dashboard","assignments","ioe-assessments","interviews"],
-    "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","ioe-assessments","interviews"],
+    "admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews","teams"],
+    "Admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews","teams"],
+    "On Ground Team":      ["dashboard","students","syllabus","assessment-details","assignments","interviews"],
+    "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments","interviews"],
+    "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments","interviews"],
+    "Instructor":          ["dashboard","assignments","interviews"],
+    "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews"],
   };
   const allowed = access[team] || access["admin"];
 
-  ["dashboard","students","syllabus","configs","assignments","assessments","assessment-details","ioe-assessments","interviews","teams"].forEach(p => {
+  ["dashboard","students","syllabus","configs","assignments","assessments","assessment-details","interviews","teams"].forEach(p => {
     const el = document.getElementById(`nav-${p}`);
     if (el) el.style.display = allowed.includes(p) ? "flex" : "none";
   });
@@ -234,7 +234,7 @@ function applyRoleAccess(team) {
   if (navAbout) navAbout.style.display = "flex";
   [["nav-section-main",       ["dashboard","students"]],
    ["nav-section-content",    ["syllabus","configs","assignments"]],
-   ["nav-section-operations", ["assessments","assessment-details","ioe-assessments","interviews"]],
+   ["nav-section-operations", ["assessments","assessment-details","interviews"]],
    ["nav-section-teams",      ["teams"]]
   ].forEach(([id, pages]) => {
     const el = document.getElementById(id);
@@ -263,8 +263,7 @@ window.switchPage = (page) => {
     configs:             { title: "Topin Configs",      icon: "🔗" },
     assessments:         { title: "Assessments",        icon: "✓" },
     "assessment-details":  { title: "Assessment Details",              icon: "📅" },
-    "ioe-assessments":     { title: "IOE Assessment Config Manager",   icon: "🗂" },
-    "interviews":          { title: "Interview Coordinator",           icon: "👥" },
+    "interviews":          { title: "Interviews",                      icon: "👥" },
     teams:                 { title: "Teams",                           icon: "🛡" },
     assignments:         { title: "Assignments",         icon: "📄" },
     about:               { title: "About",              icon: "ℹ" },
@@ -3718,51 +3717,201 @@ async function loadAssignments() {
   }
 }
 
-// ── INTERVIEWS (embedded Interview Coordinator) ───────────────
-const INTERVIEW_COORDINATOR_URL = "https://interview-coordinator.vercel.app/";
+// ── INTERVIEWS ────────────────────────────────────────────────
+let allInterviews = [];
+let ivTab         = "all";
+let editingIvId   = null;
 
-function loadInterviews() {
-  const frame    = document.getElementById("interviews-frame");
-  const fallback = document.getElementById("interviews-frame-fallback");
-  if (!frame) return;
-  if (frame.src === "about:blank" || frame.src === "") {
-    frame.src = INTERVIEW_COORDINATOR_URL;
-  }
-  frame.onerror = () => {
-    frame.style.display = "none";
-    if (fallback) { fallback.style.display = "flex"; }
-  };
-}
-
-window.reloadInterviewFrame = () => {
-  const frame = document.getElementById("interviews-frame");
-  if (frame) frame.src = INTERVIEW_COORDINATOR_URL;
+const IV_STATUS_META = {
+  pending:   { label: "Pending",   color: "#64748b", bg: "#f1f5f9" },
+  scheduled: { label: "Scheduled", color: "#2563eb", bg: "#dbeafe" },
+  completed: { label: "Completed", color: "#16a34a", bg: "#dcfce7" },
+  no_show:   { label: "No Show",   color: "#dc2626", bg: "#fee2e2" },
+  cancelled: { label: "Cancelled", color: "#92400e", bg: "#fef3c7" },
 };
 
-// ── IOE ASSESSMENTS (external embed) ─────────────────────────
-const IOE_ASSESS_URL = "https://kiran-panasa.github.io/assessment-config-manager/assessments";
-
-function loadIoeAssessments() {
-  const frame    = document.getElementById("ioe-assessments-frame");
-  const fallback = document.getElementById("ioe-frame-fallback");
-  if (!frame) return;
-  // Reload the iframe each time we navigate to the page so it stays fresh
-  frame.src = IOE_ASSESS_URL;
-  frame.onload = () => {
-    // If the frame loaded a 404/error page, show the fallback link
-    try {
-      const title = frame.contentDocument?.title || "";
-      if (title.toLowerCase().includes("404") || title.toLowerCase().includes("not found")) {
-        frame.style.display = "none";
-        if (fallback) fallback.style.display = "flex";
-      }
-    } catch { /* cross-origin — can't read title; assume OK */ }
-  };
-  frame.onerror = () => {
-    frame.style.display = "none";
-    if (fallback) fallback.style.display = "flex";
-  };
+async function loadInterviews() {
+  setTbody("iv-tbody", 8, "Loading...");
+  try {
+    const snap = await getDocs(query(collection(db, "interviews"), orderBy("created_at", "desc")));
+    allInterviews = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    populateIvFilters();
+    renderInterviewsTable();
+  } catch(e) {
+    setTbody("iv-tbody", 8, "Error: " + e.message);
+  }
 }
+
+function populateIvFilters() {
+  const phases  = [...new Set(allInterviews.map(r => r.phase).filter(Boolean))].sort();
+  const batches = [...new Set(allInterviews.map(r => r.batch).filter(Boolean))].sort();
+  const weeks   = [...new Set(allInterviews.map(r => r.week).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+  const fill = (id, vals, label) => {
+    const el = document.getElementById(id); if (!el) return;
+    const cur = el.value;
+    el.innerHTML = `<option value="">All ${label}</option>` + vals.map(v=>`<option value="${v}">${label.replace(/s$/,"")} ${v}</option>`).join("");
+    el.value = cur;
+  };
+  fill("iv-phase-filter", phases,  "Phases");
+  fill("iv-batch-filter", batches, "Batches");
+  fill("iv-week-filter",  weeks,   "Weeks");
+}
+
+window.setIvTab = (tab) => {
+  ivTab = tab;
+  document.querySelectorAll("#page-interviews .tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  renderInterviewsTable();
+};
+
+function renderInterviewsTable() {
+  const q  = (document.getElementById("iv-search")?.value || "").toLowerCase();
+  const ph = document.getElementById("iv-phase-filter")?.value || "";
+  const bt = document.getElementById("iv-batch-filter")?.value || "";
+  const wk = document.getElementById("iv-week-filter")?.value  || "";
+  const rd = document.getElementById("iv-round-filter")?.value || "";
+
+  const data = allInterviews.filter(r => {
+    if (ivTab !== "all" && r.status !== ivTab) return false;
+    if (ph && r.phase !== ph) return false;
+    if (bt && r.batch !== bt) return false;
+    if (wk && r.week  !== wk) return false;
+    if (rd && String(r.round) !== rd) return false;
+    if (q  && !`${r.student_name} ${r.student_email} ${r.interviewer_email}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  // Stats
+  const counts = { pending:0, scheduled:0, completed:0, no_show:0, cancelled:0 };
+  allInterviews.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
+  document.getElementById("iv-stat-total").textContent     = allInterviews.length;
+  document.getElementById("iv-stat-pending").textContent   = counts.pending;
+  document.getElementById("iv-stat-scheduled").textContent = counts.scheduled;
+  document.getElementById("iv-stat-completed").textContent = counts.completed;
+  document.getElementById("iv-stat-noshow").textContent    = counts.no_show;
+
+  if (!data.length) {
+    setTbody("iv-tbody", 8, "No interviews found");
+    return;
+  }
+
+  const canEdit = !isGuest;
+  document.getElementById("iv-tbody").innerHTML = data.map((r, i) => {
+    const sm = IV_STATUS_META[r.status] || IV_STATUS_META.pending;
+    const dateStr = r.scheduled_date
+      ? `${r.scheduled_date}${r.scheduled_time ? " · " + r.scheduled_time : ""}`
+      : '<span style="color:var(--muted)">—</span>';
+    return `<tr>
+      <td style="color:var(--muted);font-size:.8rem">${i+1}</td>
+      <td>
+        <div style="font-weight:600;font-size:.85rem">${escHtml(r.student_name||"—")}</div>
+        <div style="font-size:.75rem;color:var(--muted)">${escHtml(r.student_email||"")}</div>
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${r.phase ? `<span style="background:#e0f2fe;color:#0369a1;border-radius:5px;padding:1px 7px;font-size:.72rem;font-weight:600">P${r.phase}</span>` : ""}
+          ${r.batch ? `<span style="background:#f0fdf4;color:#166534;border-radius:5px;padding:1px 7px;font-size:.72rem;font-weight:600">B${r.batch}</span>` : ""}
+          ${r.week  ? `<span style="background:#faf5ff;color:#6b21a8;border-radius:5px;padding:1px 7px;font-size:.72rem;font-weight:600">W${r.week}</span>` : ""}
+        </div>
+      </td>
+      <td style="text-align:center;font-weight:600;color:var(--text-sub)">R${r.round||1}</td>
+      <td style="font-size:.82rem;color:var(--text-sub)">${escHtml(r.interviewer_email||"—")}</td>
+      <td style="font-size:.82rem">${dateStr}</td>
+      <td><span style="background:${sm.bg};color:${sm.color};border-radius:6px;padding:3px 9px;font-size:.74rem;font-weight:600;white-space:nowrap">${sm.label}</span></td>
+      <td style="text-align:right">
+        ${canEdit ? `
+        <div style="display:flex;gap:4px;justify-content:flex-end">
+          <button class="btn btn-sm" onclick="editIv('${r._id}')" title="Edit">Edit</button>
+          <button class="btn btn-sm" style="color:var(--danger)" onclick="deleteIv('${r._id}')" title="Delete">✕</button>
+        </div>` : ""}
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+window.openIvModal = () => {
+  editingIvId = null;
+  document.getElementById("iv-modal-title").textContent = "Schedule Interview";
+  ["iv-student-name","iv-student-email","iv-phase","iv-batch","iv-week","iv-interviewer","iv-notes"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = "";
+  });
+  document.getElementById("iv-round").value  = "1";
+  document.getElementById("iv-status").value = "pending";
+  document.getElementById("iv-date").value   = "";
+  document.getElementById("iv-time").value   = "";
+  document.getElementById("iv-modal").style.display = "flex";
+};
+
+window.closeIvModal = () => {
+  document.getElementById("iv-modal").style.display = "none";
+  editingIvId = null;
+};
+
+window.editIv = (id) => {
+  const r = allInterviews.find(x => x._id === id); if (!r) return;
+  editingIvId = id;
+  document.getElementById("iv-modal-title").textContent    = "Edit Interview";
+  document.getElementById("iv-student-name").value         = r.student_name  || "";
+  document.getElementById("iv-student-email").value        = r.student_email || "";
+  document.getElementById("iv-phase").value                = r.phase         || "";
+  document.getElementById("iv-batch").value                = r.batch         || "";
+  document.getElementById("iv-week").value                 = r.week          || "";
+  document.getElementById("iv-round").value                = r.round         || "1";
+  document.getElementById("iv-status").value               = r.status        || "pending";
+  document.getElementById("iv-interviewer").value          = r.interviewer_email || "";
+  document.getElementById("iv-date").value                 = r.scheduled_date   || "";
+  document.getElementById("iv-time").value                 = r.scheduled_time   || "";
+  document.getElementById("iv-notes").value                = r.notes            || "";
+  document.getElementById("iv-modal").style.display = "flex";
+};
+
+window.saveInterview = async () => {
+  const name  = document.getElementById("iv-student-name").value.trim();
+  const email = document.getElementById("iv-student-email").value.trim();
+  const phase = document.getElementById("iv-phase").value.trim();
+  const batch = document.getElementById("iv-batch").value.trim();
+  const week  = document.getElementById("iv-week").value.trim();
+  if (!name || !email || !phase || !batch || !week) {
+    showToast("Student name, email, phase, batch and week are required", "error"); return;
+  }
+  const data = {
+    student_name:     name,
+    student_email:    email,
+    phase, batch, week,
+    round:            Number(document.getElementById("iv-round").value) || 1,
+    status:           document.getElementById("iv-status").value || "pending",
+    interviewer_email: document.getElementById("iv-interviewer").value.trim(),
+    scheduled_date:   document.getElementById("iv-date").value,
+    scheduled_time:   document.getElementById("iv-time").value,
+    notes:            document.getElementById("iv-notes").value.trim(),
+    updated_at:       serverTimestamp(),
+  };
+  try {
+    if (editingIvId) {
+      await updateDoc(doc(db, "interviews", editingIvId), data);
+      showToast("Interview updated");
+    } else {
+      data.created_at = serverTimestamp();
+      data.created_by = currentUserEmail;
+      await addDoc(collection(db, "interviews"), data);
+      showToast("Interview scheduled");
+    }
+    closeIvModal();
+    await loadInterviews();
+  } catch(e) {
+    showToast("Save failed: " + e.message, "error");
+  }
+};
+
+window.deleteIv = async (id) => {
+  if (!confirm("Delete this interview record?")) return;
+  try {
+    await deleteDoc(doc(db, "interviews", id));
+    showToast("Deleted");
+    await loadInterviews();
+  } catch(e) {
+    showToast("Delete failed: " + e.message, "error");
+  }
+};
 
 function renderAssignSubjectsCell(subjects, id) {
   if (!subjects || !subjects.length) return `<span style="color:var(--muted);font-size:.82rem">—</span>`;
