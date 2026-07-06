@@ -582,6 +582,16 @@ code {
 }
 @keyframes modalIn { from { transform: scale(.96) translateY(8px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
 .modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+
+/* Right-side portrait drawer (eval student modal) */
+.modal-backdrop.drawer { justify-content: flex-end; align-items: stretch; }
+.modal-backdrop.drawer > .modal {
+  border-radius: 20px 0 0 20px; width: 520px; max-width: 100vw;
+  height: 100vh; max-height: 100vh;
+  box-shadow: -8px 0 40px rgba(0,0,0,.18);
+  animation: drawerIn .22s cubic-bezier(.25,.46,.45,.94);
+}
+@keyframes drawerIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .modal-footer {
   display: flex; gap: 10px; justify-content: flex-end;
   margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
