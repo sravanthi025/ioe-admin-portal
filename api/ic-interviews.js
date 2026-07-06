@@ -30,14 +30,27 @@ export default async function handler(req, res) {
 
   try {
     const db   = await getIcDb();
-    // DEBUG: get all docs, return unique templateNames with counts
-    const snap = await db.collection("interviews").get();
-    const counts = {};
-    snap.docs.forEach(d => {
-      const t = d.data().templateName || "(none)";
-      counts[t] = (counts[t] || 0) + 1;
+    // Intensive Offline templates: "Intensive_Evaluation_Weekly" (143) and "Intensive_React Evaluation_BM" (40)
+    // Firestore range query: templateName >= "Intensive" && < "Intensivf" captures both
+    const snap = await db.collection("interviews")
+      .where("templateName", ">=", "Intensive")
+      .where("templateName", "<",  "Intensivf")
+      .get();
+    const interviews = snap.docs.map(d => {
+      const r = d.data();
+      return {
+        _id:              d.id,
+        candidateName:    r.candidateName    || r.studentName    || "",
+        candidateEmail:   r.candidateEmail   || r.studentEmail   || "",
+        interviewerEmail: r.interviewerEmail || r.interviewerName || "",
+        scheduledDate:    r.scheduledDate    || "",
+        scheduledTime:    r.scheduledTime    || "",
+        round:            r.round            || 1,
+        status:           r.status           || "pending",
+        templateName:     r.templateName     || "",
+      };
     });
-    return res.json({ ok: true, debug: true, total: snap.size, templateCounts: counts });
+    res.json({ ok: true, count: interviews.length, interviews });
   } catch(e) {
     res.status(500).json({ ok: false, error: e.message });
   }
