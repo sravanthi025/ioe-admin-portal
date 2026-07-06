@@ -30,26 +30,10 @@ export default async function handler(req, res) {
 
   try {
     const db   = await getIcDb();
-    // Filter server-side to Intensive Offline only
-    const snap = await db.collection("interviews")
-      .where("program", "==", "Intensive Offline")
-      .get();
-    const interviews = snap.docs.map(d => {
-      const r = d.data();
-      return {
-        _id:              d.id,
-        candidateName:    r.candidateName    || r.studentName   || "",
-        candidateEmail:   r.candidateEmail   || r.studentEmail  || "",
-        interviewerEmail: r.interviewerEmail || r.interviewerName || "",
-        scheduledDate:    r.scheduledDate    || "",
-        scheduledTime:    r.scheduledTime    || "",
-        round:            r.round            || 1,
-        status:           r.status          || "pending",
-        program:          r.program          || "",
-        templateName:     r.templateName     || "",
-      };
-    });
-    res.json({ ok: true, count: interviews.length, interviews });
+    // DEBUG: fetch first 5 docs unfiltered to inspect actual field names/values
+    const snap = await db.collection("interviews").limit(5).get();
+    const sample = snap.docs.map(d => d.data());
+    return res.json({ ok: true, debug: true, sample });
   } catch(e) {
     res.status(500).json({ ok: false, error: e.message });
   }
