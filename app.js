@@ -4602,10 +4602,18 @@ function openProgressModal(title, { showTargetPicker = false, targetOptions = []
   document.getElementById("progress-log").innerHTML            = "";
   document.getElementById("progress-log").style.display        = showTargetPicker ? "none" : "";
   document.getElementById("progress-result").style.display     = "none";
-  document.getElementById("progress-otp-box").style.display    = "none";
   document.getElementById("progress-cancel-btn").style.display = "";
   document.getElementById("progress-close-btn").style.display  = "none";
   window._otpProceed = null;
+
+  // Pre-fill mobile from localStorage, clear OTP and status
+  const savedMobile = localStorage.getItem("topinMobile") || "";
+  const mobileEl = document.getElementById("progress-mobile-input");
+  if (mobileEl && !mobileEl.value) mobileEl.value = savedMobile;
+  const otpEl = document.getElementById("progress-otp-input");
+  if (otpEl) otpEl.value = "";
+  const statusEl = document.getElementById("progress-creds-status");
+  if (statusEl) { statusEl.textContent = ""; statusEl.style.color = ""; }
 
   const picker = document.getElementById("progress-target-picker");
   const btns   = document.getElementById("progress-target-btns");
@@ -4718,23 +4726,31 @@ window.publishToTopin = async (configId, preselectedTarget = null) => {
         renderAssessmentsTable();
       } catch (e) { logProgress("error", "Firestore update failed: " + e.message); }
     });
-    const mobile = prompt("Enter your Topin mobile number (10 digits):");
-    if (!mobile) { closeModal("progress-modal"); return; }
+
+    const mobile = document.getElementById("progress-mobile-input")?.value.trim() || localStorage.getItem("topinMobile") || "";
+    if (!mobile || mobile.length < 10) {
+      setCredsStatus("Enter your 10-digit Topin mobile number and click Get OTP first", "error");
+      return;
+    }
+    localStorage.setItem("topinMobile", mobile);
+
+    const proceed = async () => {
+      if (target === "mock" || target === "both") await runTopinPublish(serverUrl, c, configId, "mock");
+      if (target === "main" || target === "both") { if (target === "both") await new Promise(r => setTimeout(r, 1500)); await runTopinPublish(serverUrl, c, configId, "main"); }
+    };
+
     try {
       const startResp = await fetch(`${serverUrl}/api/publish/start`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mobile })
       });
       const startData = await startResp.json();
-      const proceed = async () => {
-        if (target === "mock" || target === "both") await runTopinPublish(serverUrl, c, configId, "mock");
-        if (target === "main" || target === "both") { if (target === "both") await new Promise(r => setTimeout(r, 1500)); await runTopinPublish(serverUrl, c, configId, "main"); }
-      };
-      if (startData.status === "already_authenticated") { await proceed(); }
-      else if (startData.status === "otp_sent") {
-        const otpBox = document.getElementById("progress-otp-box");
+      if (startData.status === "already_authenticated") {
+        setCredsStatus("Already logged in — starting automation...", "success");
+        await proceed();
+      } else if (startData.status === "otp_sent") {
+        setCredsStatus(`OTP sent to ${mobile.replace(/\d(?=\d{4})/g, "*")} — enter it above and click Verify`, "info");
         document.getElementById("progress-otp-input").value = "";
-        otpBox.style.display = "";
         document.getElementById("progress-otp-input").focus();
         window._otpProceed = proceed;
       } else { logProgress("error", startData.error || "Failed to start login"); finishProgress(false, "Login failed"); }
@@ -4753,28 +4769,43 @@ window.publishToTopin = async (configId, preselectedTarget = null) => {
   }
 };
 
-window.submitOTP = async () => {
-  const otp = document.getElementById("otp-input").value.trim();
+function setCredsStatus(msg, type = "info") {
+  const el = document.getElementById("progress-creds-status");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = type === "error" ? "#dc2626" : type === "success" ? "#16a34a" : "#2563eb";
+}
+
+window.getOtpInline = async () => {
+  const mobile = document.getElementById("progress-mobile-input")?.value.trim() || "";
+  if (!mobile || mobile.length < 10) { setCredsStatus("Enter a valid 10-digit mobile number", "error"); return; }
+  localStorage.setItem("topinMobile", mobile);
   const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
-  if (otp.length !== 6) { toast("Enter a valid 6-digit OTP", "error"); return; }
-  const btn = document.getElementById("otp-submit-btn");
-  btn.textContent = "Verifying..."; btn.disabled = true;
+  const btn = document.getElementById("progress-get-otp-btn");
+  btn.textContent = "Sending..."; btn.disabled = true;
   try {
-    const resp = await fetch(`${serverUrl}/api/publish/verify-otp`, {
+    const resp = await fetch(`${serverUrl}/api/publish/start`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ otp })
+      body: JSON.stringify({ mobile })
     });
     const data = await resp.json();
-    if (data.status === "authenticated") closeModal("otp-modal");
-    else toast("OTP verification failed: " + (data.error || "unknown"), "error");
-  } catch (e) { toast("Error: " + e.message, "error"); }
-  finally { btn.textContent = "Verify & Login"; btn.disabled = false; }
+    if (data.status === "otp_sent") {
+      setCredsStatus(`OTP sent to ${mobile.replace(/\d(?=\d{4})/g, "*")} — check your phone`, "success");
+      document.getElementById("progress-otp-input").value = "";
+      document.getElementById("progress-otp-input").focus();
+    } else if (data.status === "already_authenticated") {
+      setCredsStatus("Already logged in — select a target to publish", "success");
+    } else {
+      setCredsStatus(data.error || "Failed to send OTP", "error");
+    }
+  } catch(e) { setCredsStatus("Server error: " + e.message, "error"); }
+  finally { btn.textContent = "Get OTP"; btn.disabled = false; }
 };
 
 window.submitInlineOTP = async () => {
   const otp = document.getElementById("progress-otp-input").value.trim();
   const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
-  if (otp.length !== 6) { toast("Enter a valid 6-digit OTP", "error"); return; }
+  if (otp.length !== 6) { setCredsStatus("Enter a valid 6-digit OTP", "error"); return; }
   const btn = document.getElementById("progress-otp-btn");
   btn.textContent = "Verifying..."; btn.disabled = true;
   try {
@@ -4784,14 +4815,14 @@ window.submitInlineOTP = async () => {
     });
     const data = await resp.json();
     if (data.status === "authenticated") {
-      document.getElementById("progress-otp-box").style.display = "none";
-      logProgress("success", "OTP verified — proceeding with publish...");
+      setCredsStatus("Verified — proceeding with publish...", "success");
+      logProgress("success", "OTP verified — starting automation...");
       if (window._otpProceed) { window._otpProceed(); window._otpProceed = null; }
     } else {
+      setCredsStatus("Wrong OTP — try again", "error");
       logProgress("error", "OTP verification failed: " + (data.error || "unknown"));
-      toast("Wrong OTP — try again", "error");
     }
-  } catch (e) { logProgress("error", e.message); toast("Error: " + e.message, "error"); }
+  } catch (e) { setCredsStatus("Error: " + e.message, "error"); logProgress("error", e.message); }
   finally { btn.textContent = "Verify"; btn.disabled = false; }
 };
 

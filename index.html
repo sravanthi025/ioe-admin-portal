@@ -1704,29 +1704,14 @@
         <span id="server-status-txt" style="font-size:.8rem;color:var(--muted)">Not checked</span>
         <button class="btn btn-outline btn-sm" onclick="checkServerHealth()" style="margin-left:auto">Check Connection</button>
       </div>
-      <label class="form-label">Topin Mobile Number</label>
-      <input class="form-input" id="creds-mobile" placeholder="10-digit mobile" maxlength="10" style="margin-bottom:4px" />
-      <p style="font-size:.73rem;color:var(--muted);margin-bottom:0">Used for OTP login. Not stored — entered each session.</p>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:0;padding:10px 12px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0">
+        Mobile number and OTP are entered directly in the Publish modal when you click Publish on a config row. Mobile is remembered between sessions.
+      </p>
     </div>
 
     <div class="modal-footer" style="margin-top:20px">
       <button class="btn btn-outline" onclick="closeModal('creds-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveCredentials()">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- OTP MODAL -->
-<div class="modal-backdrop" id="otp-modal">
-  <div class="modal" style="max-width:380px;text-align:center">
-    <h3>Enter OTP</h3>
-    <p style="color:var(--muted);font-size:.84rem;margin:12px 0">An OTP has been sent to your registered mobile number. Enter it below to authenticate with Topin.</p>
-    <input class="form-input" id="otp-input" placeholder="6-digit OTP" maxlength="6" inputmode="numeric"
-           style="text-align:center;letter-spacing:.2em;font-size:1.2rem;margin-bottom:16px"
-           oninput="this.value=this.value.replace(/\D/g,'')" />
-    <div class="modal-footer" style="justify-content:center">
-      <button class="btn btn-outline" onclick="closeModal('otp-modal')">Cancel</button>
-      <button class="btn btn-primary" id="otp-submit-btn" onclick="submitOTP()">Verify &amp; Login</button>
     </div>
   </div>
 </div>
@@ -1744,16 +1729,27 @@
 
     <div id="progress-log" style="background:#0f172a;border-radius:8px;padding:14px;height:220px;overflow-y:auto;font-family:monospace;font-size:.78rem;margin:16px 0;color:#e2e8f0;display:none"></div>
 
-    <!-- Inline OTP entry — appears inside the progress modal when OTP is sent -->
-    <div id="progress-otp-box" style="display:none;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px">
-      <p style="font-size:.84rem;font-weight:600;color:var(--text);margin-bottom:4px">Enter OTP</p>
-      <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Check your mobile for the 6-digit OTP from Topin.</p>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input id="progress-otp-input" class="form-input" placeholder="6-digit OTP" maxlength="6" inputmode="numeric"
-               style="text-align:center;letter-spacing:.25em;font-size:1.1rem;flex:1"
-               oninput="this.value=this.value.replace(/\D/g,'')" />
-        <button class="btn btn-primary" id="progress-otp-btn" onclick="submitInlineOTP()">Verify</button>
+    <!-- Mobile + OTP — always visible, always editable -->
+    <div id="progress-creds-box" style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:10px">
+        <div>
+          <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">Topin Mobile</label>
+          <input id="progress-mobile-input" class="form-input" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric"
+                 style="font-size:.92rem" oninput="this.value=this.value.replace(/\D/g,'')" />
+        </div>
+        <button class="btn btn-outline" id="progress-get-otp-btn" onclick="getOtpInline()" style="white-space:nowrap">Get OTP</button>
       </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+        <div>
+          <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">OTP</label>
+          <input id="progress-otp-input" class="form-input" placeholder="6-digit OTP" maxlength="6" inputmode="numeric"
+                 style="text-align:center;letter-spacing:.25em;font-size:1.1rem"
+                 oninput="this.value=this.value.replace(/\D/g,'')"
+                 onkeydown="if(event.key==='Enter')submitInlineOTP()" />
+        </div>
+        <button class="btn btn-primary" id="progress-otp-btn" onclick="submitInlineOTP()" style="white-space:nowrap">Verify</button>
+      </div>
+      <div id="progress-creds-status" style="margin-top:8px;font-size:.78rem;color:var(--muted)"></div>
     </div>
 
     <div id="progress-result" style="display:none;padding:10px 14px;border-radius:6px;font-size:.83rem;margin-bottom:12px"></div>
