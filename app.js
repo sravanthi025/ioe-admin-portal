@@ -3275,8 +3275,8 @@ function renderADTable() {
           <span class="badge ${statusCls}" style="font-size:.67rem">${statusLabel}</span>
           ${breach
             ? isAcknowledged
-              ? `<span class="sp-ack">✓ Acknowledged</span>`
-              : `<span class="sp-breach-lbl">⚠ Breach</span>`
+              ? `<span class="sp-ack">Acknowledged</span>`
+              : `<span class="sp-breach-lbl">Breach</span>`
             : ""}
         </div>`
       : `<span style="color:var(--muted);font-size:.78rem">No date set</span>`;
@@ -3298,11 +3298,18 @@ function renderADTable() {
       <td style="text-align:right">
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
           <button class="btn btn-sm btn-primary" id="ad-toggle-btn-${c._id}" onclick="toggleADRow('${c._id}')"
-            style="min-width:110px">${isExpanded ? "▲ Collapse" : "▼ View Details"}</button>
+            style="min-width:110px">${isExpanded ? "Collapse" : "View Details"}</button>
           ${breach && !isAcknowledged
             ? `<button class="btn btn-sm" onclick="markBreachRead('${c._id}')"
                 style="min-width:110px;background:transparent;border:1.5px solid #fca5a5;color:#c94040;font-size:.73rem">
-                ✓ Mark as Read
+                Mark as Read
+              </button>`
+            : ""}
+          ${breach
+            ? `<button class="btn btn-sm" data-teams-btn="${c._id}" onclick="notifyTeamsBreach('${c._id}')"
+                style="min-width:110px;background:#6264a7;color:#fff;font-size:.73rem;border:none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 11.5a19.79 19.79 0 01-3.07-8.67A2 2 0 011.9 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.74a16 16 0 006.29 6.29l1.1-1.1a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                Notify Teams
               </button>`
             : ""}
         </div>
@@ -3356,14 +3363,15 @@ window.markAllBreachesRead = async () => {
 
 // ── SLA BREACH DETECTION & NOTIFICATION ───────────────────────
 
+const SLA_STEPS = [
+  { key: "syllabus",     label: "Syllabus Submission",   team: "On Ground Team",     dlKey: "syllabus",     compFn: c => c.syllabus_submitted_at || c.createdAt },
+  { key: "mock_config",  label: "Mock Config Link",      team: "Content Team",       dlKey: "mock_config",  compFn: c => c.mock_config_link_submitted_at, mockOnly: true },
+  { key: "mock_publish", label: "Mock Assessment Live",  team: "Assessment Ops Team",dlKey: "mock_publish", compFn: c => c.published_at, mockOnly: true },
+  { key: "main_config",  label: "Main Config Link",      team: "Content Team",       dlKey: "main_config",  compFn: c => c.config_link_submitted_at || (c.config_link ? c.submittedAt : null) },
+  { key: "main_publish", label: "Main Assessment Live",  team: "Assessment Ops Team",dlKey: "main_publish", compFn: c => c.published_at },
+];
+
 async function checkAndNotifyBreaches() {
-  const SLA_STEPS = [
-    { key: "syllabus",     label: "Syllabus Submission",    team: "On Ground Team",     dlKey: "syllabus",     compFn: c => c.syllabus_submitted_at || c.createdAt },
-    { key: "mock_config",  label: "Mock Config Link",       team: "Content Team",        dlKey: "mock_config",  compFn: c => c.mock_config_link_submitted_at, mockOnly: true },
-    { key: "mock_publish", label: "Mock Assessment Live",   team: "Assessment Ops Team", dlKey: "mock_publish", compFn: c => c.published_at, mockOnly: true },
-    { key: "main_config",  label: "Main Config Link",       team: "Content Team",        dlKey: "main_config",  compFn: c => c.config_link_submitted_at || (c.config_link ? c.submittedAt : null) },
-    { key: "main_publish", label: "Main Assessment Live",   team: "Assessment Ops Team", dlKey: "main_publish", compFn: c => c.published_at },
-  ];
 
   const escalateAfterMs = (_emailjsConfig?.escalateAfterHours || 0) * 60 * 60 * 1000;
 
@@ -3413,6 +3421,7 @@ async function recordAndEscalate(c, step, deadline, hoursPassed) {
     });
     Object.assign(c, { [escalField]: true });
     await sendSLAEscalationEmail({ c, step, deadline, hoursPassed });
+    await sendTeamsBreachNotification({ c, step, deadline, isEscalation: true, hoursPassed });
   } catch (e) {
     console.error("[SLA] Escalation error:", e);
   }
@@ -3484,6 +3493,9 @@ async function recordAndNotifyBreach(c, step, deadline) {
     if (rpEmails.length) {
       await sendSLABreachEmail({ c, step, deadline, rpEmails });
     }
+
+    // Teams notification
+    await sendTeamsBreachNotification({ c, step, deadline });
   } catch (e) {
     console.error("[SLA] Breach notification error:", e);
   }
@@ -3525,6 +3537,57 @@ async function sendSLABreachEmail({ c, step, deadline, rpEmails }) {
     `Assessment: ${assessment}\nStep: ${step.label}\nDeadline: ${deadlineStr}`
   );
 }
+
+// ── TEAMS BREACH NOTIFICATION ─────────────────────────────────
+
+async function sendTeamsBreachNotification({ c, step, deadline, isEscalation = false, hoursPassed = 0 }) {
+  const assessment = `${c.phase || ""}${c.batch ? "-" + c.batch : ""}${c.week ? "-" + c.week : ""} (${fmtDate(c.assessment_date)})`;
+  const deadlineStr = deadline
+    ? deadline.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })
+      + ", " + deadline.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+    : "—";
+  try {
+    await fetch("/api/teams-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        assessment,
+        stage:      step.label,
+        team:       step.team,
+        deadline:   deadlineStr,
+        detectedAt: new Date().toLocaleString("en-IN"),
+        portalUrl:  window.location.origin,
+        isEscalation,
+        hoursPassed,
+      })
+    });
+  } catch (e) {
+    console.warn("[Teams] Notification failed:", e.message);
+  }
+}
+
+// Manual "Notify Teams" button handler — re-sends for all active breaches on that config
+window.notifyTeamsBreach = async (configId) => {
+  const c = allConfigs.find(x => x._id === configId);
+  if (!c) return;
+
+  const btn = document.querySelector(`[data-teams-btn="${configId}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = "Sending..."; }
+
+  const sla = computeSLADeadlines(c.phase, c.assessment_date);
+  let sent = 0;
+  for (const step of SLA_STEPS) {
+    if (step.mockOnly && c.mock_assessment !== "required") continue;
+    const deadline  = sla?.[step.dlKey];
+    const completed = step.compFn(c);
+    if (slaStatus(deadline, completed).s !== "breach") continue;
+    await sendTeamsBreachNotification({ c, step, deadline });
+    sent++;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = "Notify Teams"; }
+  toast(sent > 0 ? `Teams notified: ${sent} active breach${sent > 1 ? "es" : ""}` : "No active breaches to notify", sent > 0 ? "success" : "info");
+};
 
 // ── SLA EMAIL SETTINGS ────────────────────────────────────────
 
