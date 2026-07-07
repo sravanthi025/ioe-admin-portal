@@ -188,7 +188,7 @@
     <!-- TOPBAR -->
     <header class="topbar">
       <div class="topbar-left">
-        <span class="topbar-page-icon" id="topbar-icon">⊞</span>
+        <span class="topbar-page-icon" id="topbar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></span>
         <span class="topbar-title" id="topbar-title">Dashboard</span>
       </div>
       <div class="topbar-right">
@@ -995,7 +995,7 @@
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0">
           <button class="btn btn-sm" style="background:#fff;color:#b91c1c;border:1.5px solid #fca5a5" onclick="setAdTab('breached')">View Breaches</button>
-          <button class="btn btn-sm guest-action" style="background:transparent;color:#7f1d1d;border:1.5px solid rgba(127,29,29,.35)" onclick="markAllBreachesRead()" title="Acknowledge all breaches — clears the badge">✓ Mark All as Read</button>
+          <button class="btn btn-sm guest-action" style="background:transparent;color:#7f1d1d;border:1.5px solid rgba(127,29,29,.35)" onclick="markAllBreachesRead()" title="Acknowledge all breaches — clears the badge">Mark All as Read</button>
         </div>
       </div>
 
@@ -2169,8 +2169,8 @@
       <div>
         <label class="es-lbl" style="margin-bottom:6px;display:block">Remarks</label>
         <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
-          <button type="button" class="remark-chip" onclick="addRemark('All features implemented.')">✓ All features implemented</button>
-          <button type="button" class="remark-chip" onclick="addRemark('Good code structure, readability, responsive.')">✓ Code structure &amp; responsive</button>
+          <button type="button" class="remark-chip" onclick="addRemark('All features implemented.')">All features implemented</button>
+          <button type="button" class="remark-chip" onclick="addRemark('Good code structure, readability, responsive.')">Code structure &amp; responsive</button>
           <button type="button" class="remark-chip" onclick="addRemark('Not fully implemented as per the given question.')">Not fully implemented</button>
           <button type="button" class="remark-chip" onclick="addRemark('Functionalities are good but UI can be improved.')">Functionality good, UI weak</button>
           <button type="button" class="remark-chip" onclick="addRemark('UI is good but functionalities and state management has some issues.')">UI good, functionality issues</button>
