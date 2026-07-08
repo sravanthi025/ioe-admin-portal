@@ -53,14 +53,7 @@ body {
 
 .auth-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
 
-.auth-logo-mark {
-  width: 40px; height: 40px;
-  background: linear-gradient(135deg, #6a92d4, var(--primary));
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 12px rgba(74,120,194,.25);
-}
-.auth-logo-mark span { color: white; font-size: 14px; font-weight: 800; }
+.auth-logo .brand-logo-img { width: 48px; height: 48px; }
 .auth-logo h2 { font-size: 1rem; font-weight: 700; color: var(--text); line-height: 1.2; }
 .auth-logo small { display: block; font-size: .73rem; font-weight: 400; color: var(--muted); }
 
@@ -97,15 +90,13 @@ body {
   display: flex; align-items: center; gap: 12px;
 }
 
-.logo-mark {
-  width: 34px; height: 34px;
-  background: linear-gradient(135deg, #6a92d4, #4a78c2);
-  border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
+.brand-logo-img {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(74,120,194,.25);
+  box-shadow: 0 2px 8px rgba(91,74,217,.25);
 }
-.logo-mark span { color: white; font-size: 12px; font-weight: 800; }
 
 .logo-text h2 { font-size: .86rem; font-weight: 700; color: var(--text); line-height: 1.2; }
 .logo-text small { font-size: .68rem; color: var(--muted); }
