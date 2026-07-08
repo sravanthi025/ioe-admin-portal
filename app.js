@@ -424,10 +424,9 @@ window.onStudentBatchChange = () => {
 };
 
 window.clearStudentFilters = () => {
-  ["student-search","student-phase-filter","student-batch-filter","student-week-filter"]
+  ["student-search","student-phase-filter","student-batch-filter","student-week-filter","student-date-from","student-date-to"]
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   studentDateFrom = ""; studentDateTo = "";
-  window._fpStudent?.clear();
   currentPage = 1;
   renderStudentsTable();
 };
@@ -1110,10 +1109,9 @@ window.onSyllabusBatchChange = () => {
 window.filterSyllabus = () => { syllabusPage = 1; renderSyllabusTable(); };
 
 window.clearSyllabusFilters = () => {
-  ["syllabus-search","syllabus-phase-filter","syllabus-batch-filter","syllabus-week-filter"]
+  ["syllabus-search","syllabus-phase-filter","syllabus-batch-filter","syllabus-week-filter","syllabus-date-from","syllabus-date-to"]
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   syllabusDateFrom = ""; syllabusDateTo = "";
-  window._fpSyllabus?.clear();
   syllabusPage = 1;
   populateSyllabusFilters();
   renderSyllabusTable();
@@ -1796,10 +1794,9 @@ window.onConfigBatchChange = () => {
 };
 
 window.clearConfigFilters = () => {
-  ["config-search","config-phase-filter","config-batch-filter","config-week-filter"]
+  ["config-search","config-phase-filter","config-batch-filter","config-week-filter","config-date-from","config-date-to"]
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   configDateFrom = ""; configDateTo = "";
-  window._fpConfig?.clear();
   populateConfigFilters();
   renderConfigsTable();
 };
@@ -2847,21 +2844,24 @@ document.getElementById("login-password").addEventListener("keydown", e => {
 // Seed one empty subject row so the form is ready to use
 window.addSubjectRow();
 
-// ── DATE RANGE PICKERS (Flatpickr) ───────────────────────────
-const fpCfg = (onRange) => ({
-  mode: "range",
-  dateFormat: "d M Y",
-  altInput: false,
-  showMonths: 1,
-  onChange(dates) {
-    const fmt = d => d.toISOString().split("T")[0];
-    onRange(dates[0] ? fmt(dates[0]) : "", dates[1] ? fmt(dates[1]) : "");
-  }
-});
-
-window._fpStudent  = flatpickr("#student-date-range",  fpCfg((from, to) => { studentDateFrom  = from; studentDateTo   = to; filterStudents();  }));
-window._fpSyllabus = flatpickr("#syllabus-date-range", fpCfg((from, to) => { syllabusDateFrom = from; syllabusDateTo  = to; filterSyllabus();  }));
-window._fpConfig   = flatpickr("#config-date-range",   fpCfg((from, to) => { configDateFrom   = from; configDateTo    = to; filterConfigs();   }));
+// ── DATE RANGE HANDLERS ───────────────────────────────────────
+window.onStudentDateChange = () => {
+  studentDateFrom = document.getElementById("student-date-from")?.value || "";
+  studentDateTo   = document.getElementById("student-date-to")?.value   || "";
+  currentPage = 1;
+  filterStudents();
+};
+window.onSyllabusDateChange = () => {
+  syllabusDateFrom = document.getElementById("syllabus-date-from")?.value || "";
+  syllabusDateTo   = document.getElementById("syllabus-date-to")?.value   || "";
+  syllabusPage = 1;
+  filterSyllabus();
+};
+window.onConfigDateChange = () => {
+  configDateFrom = document.getElementById("config-date-from")?.value || "";
+  configDateTo   = document.getElementById("config-date-to")?.value   || "";
+  filterConfigs();
+};
 
 // ══════════════════════════════════════════════════════════════
 // ASSESSMENT TITLE & TAG GENERATION

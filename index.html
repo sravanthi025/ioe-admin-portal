@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Intensive Offline Portal</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" defer></script>
 </head>
 <body>
@@ -267,7 +266,12 @@
           <select id="student-week-filter" onchange="filterStudents()" style="width:auto;margin-bottom:0;padding:8px 12px">
             <option value="">Weeks</option>
           </select>
-          <input type="text" id="student-date-range" placeholder="Assessment date range" readonly style="width:auto;min-width:200px;margin-bottom:0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;cursor:pointer;background:#fff" />
+          <div style="display:flex;align-items:center;gap:0;border:1.5px solid var(--border-strong);border-radius:8px;background:#fff;overflow:hidden;flex-shrink:0">
+            <span style="padding:7px 10px;font-size:.73rem;font-weight:600;color:var(--muted);border-right:1px solid var(--border);background:var(--bg);white-space:nowrap;user-select:none">From</span>
+            <input type="date" id="student-date-from" onchange="onStudentDateChange()" style="border:none;background:transparent;font-size:.82rem;padding:7px 10px;outline:none;color:var(--text);cursor:pointer;width:145px;margin:0;font-family:inherit">
+            <span style="padding:7px 10px;font-size:.73rem;font-weight:600;color:var(--muted);border-left:1px solid var(--border);border-right:1px solid var(--border);background:var(--bg);white-space:nowrap;user-select:none">To</span>
+            <input type="date" id="student-date-to" onchange="onStudentDateChange()" style="border:none;background:transparent;font-size:.82rem;padding:7px 10px;outline:none;color:var(--text);cursor:pointer;width:145px;margin:0;font-family:inherit">
+          </div>
           <button class="btn btn-outline btn-sm" onclick="clearStudentFilters()">Clear</button>
           <button class="btn btn-outline btn-sm" onclick="loadStudents()">Refresh</button>
           <button class="btn btn-primary btn-sm guest-action" onclick="exportStudentsCSV()">Export CSV</button>
@@ -620,7 +624,12 @@
           <select id="syllabus-week-filter" onchange="filterSyllabus()" style="width:auto;margin-bottom:0;padding:8px 12px">
             <option value="">Weeks</option>
           </select>
-          <input type="text" id="syllabus-date-range" placeholder="Assessment date range" readonly style="width:auto;min-width:200px;margin-bottom:0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;cursor:pointer;background:#fff" />
+          <div style="display:flex;align-items:center;gap:0;border:1.5px solid var(--border-strong);border-radius:8px;background:#fff;overflow:hidden;flex-shrink:0">
+            <span style="padding:7px 10px;font-size:.73rem;font-weight:600;color:var(--muted);border-right:1px solid var(--border);background:var(--bg);white-space:nowrap;user-select:none">From</span>
+            <input type="date" id="syllabus-date-from" onchange="onSyllabusDateChange()" style="border:none;background:transparent;font-size:.82rem;padding:7px 10px;outline:none;color:var(--text);cursor:pointer;width:145px;margin:0;font-family:inherit">
+            <span style="padding:7px 10px;font-size:.73rem;font-weight:600;color:var(--muted);border-left:1px solid var(--border);border-right:1px solid var(--border);background:var(--bg);white-space:nowrap;user-select:none">To</span>
+            <input type="date" id="syllabus-date-to" onchange="onSyllabusDateChange()" style="border:none;background:transparent;font-size:.82rem;padding:7px 10px;outline:none;color:var(--text);cursor:pointer;width:145px;margin:0;font-family:inherit">
+          </div>
           <button class="btn btn-outline btn-sm" onclick="clearSyllabusFilters()">Clear</button>
           <button class="btn btn-outline btn-sm" onclick="loadSyllabus()">Refresh</button>
           <button class="btn btn-primary btn-sm guest-action" onclick="exportSyllabusCSV()">Export CSV</button>
@@ -794,7 +803,12 @@
         <select id="config-week-filter" onchange="filterConfigs()" style="width:auto;margin-bottom:0;padding:8px 12px">
           <option value="">Weeks</option>
         </select>
-        <input type="text" id="config-date-range" placeholder="Assessment date range" readonly style="width:auto;min-width:200px;margin-bottom:0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.84rem;cursor:pointer;background:#fff" />
+        <div style="display:flex;align-items:center;gap:0;border:1.5px solid var(--border-strong);border-radius:8px;background:#fff;overflow:hidden;flex-shrink:0">
+          <span style="padding:7px 10px;font-size:.73rem;font-weight:600;color:var(--muted);border-right:1px solid var(--border);background:var(--bg);white-space:nowrap;user-select:none">From</span>
+          <input type="date" id="config-date-from" onchange="onConfigDateChange()" style="border:none;background:transparent;font-size:.82rem;padding:7px 10px;outline:none;color:var(--text);cursor:pointer;width:145px;margin:0;font-family:inherit">
+          <span style="padding:7px 10px;font-size:.73rem;font-weight:600;color:var(--muted);border-left:1px solid var(--border);border-right:1px solid var(--border);background:var(--bg);white-space:nowrap;user-select:none">To</span>
+          <input type="date" id="config-date-to" onchange="onConfigDateChange()" style="border:none;background:transparent;font-size:.82rem;padding:7px 10px;outline:none;color:var(--text);cursor:pointer;width:145px;margin:0;font-family:inherit">
+        </div>
         <button class="btn btn-outline btn-sm" onclick="clearConfigFilters()">Clear</button>
         <button class="btn btn-outline btn-sm" onclick="loadConfigs()">Refresh</button>
         <button class="btn btn-outline btn-sm" id="sync-configs-btn" onclick="syncConfigsFromSyllabus()" title="Create pending config entries for any syllabus weeks that don't have one yet">Sync from Syllabus</button>
@@ -2216,7 +2230,6 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>
