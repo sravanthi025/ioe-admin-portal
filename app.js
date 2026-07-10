@@ -4106,22 +4106,37 @@ function renderAssignmentsTable() {
       : `<span style="color:var(--muted);font-size:.8rem">—</span>`;
 
     const actions = [];
+
+    // Edit / Submit Links — Content + Admin
     if (!isGuest && (isContent || isAdmin)) {
-      actions.push(`<button class="btn btn-primary btn-sm" onclick="openSubmitLinksModal('${a._id}')" style="font-size:.75rem;white-space:nowrap">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`);
+      actions.push(`<button class="btn btn-primary btn-sm assign-action-btn" onclick="openSubmitLinksModal('${a._id}')">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`);
     }
-    if ((isOnGround || isAdmin) && allocCount > 0) {
-      actions.push(`<button class="btn btn-outline btn-sm" onclick="downloadAllocationCSV('${a._id}')" style="font-size:.75rem;white-space:nowrap" title="Download student-set allocation CSV">↓ CSV</button>`);
-    }
-    if (allocCount > 0) {
-      const evalLabel = evalDone > 0 ? `View Eval (${evalDone}/${allocCount})` : isGuest ? `View Students (${allocCount})` : "Evaluate";
-      if (!isGuest) {
-        if (isInstructor || isAdmin) actions.push(`<button class="btn btn-outline btn-sm" onclick="openEvalListModal('${a._id}')" style="font-size:.75rem;white-space:nowrap;color:#7c3aed;border-color:#c4b5fd">${evalDone > 0 ? `Evaluate (${evalDone}/${allocCount})` : "Evaluate"}</button>`);
+
+    // Download CSV — OnGround + Admin (disabled until students are allocated)
+    if (!isGuest && (isOnGround || isAdmin)) {
+      if (allocCount > 0) {
+        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn" onclick="downloadAllocationCSV('${a._id}')" title="Download student-set allocation CSV">↓ CSV</button>`);
       } else {
-        actions.push(`<button class="btn btn-outline btn-sm" onclick="openEvalListModal('${a._id}')" style="font-size:.75rem;white-space:nowrap;color:#7c3aed;border-color:#c4b5fd">${evalLabel}</button>`);
+        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-dim" disabled title="No students allocated yet">↓ CSV</button>`);
       }
     }
+
+    // Evaluate — Instructor + Admin (disabled until students are allocated); guest sees View Students
+    if (!isGuest && (isInstructor || isAdmin)) {
+      if (allocCount > 0) {
+        const evalLabel = evalDone > 0 ? `Evaluate (${evalDone}/${allocCount})` : "Evaluate";
+        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval" onclick="openEvalListModal('${a._id}')">${evalLabel}</button>`);
+      } else {
+        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval assign-action-dim" disabled title="No students allocated yet">Evaluate</button>`);
+      }
+    } else if (isGuest && allocCount > 0) {
+      const guestLabel = evalDone > 0 ? `View Eval (${evalDone}/${allocCount})` : `View Students (${allocCount})`;
+      actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval" onclick="openEvalListModal('${a._id}')">${guestLabel}</button>`);
+    }
+
+    // Delete — Admin only
     if (!isGuest && isAdmin) {
-      actions.push(`<button class="btn btn-outline btn-sm" onclick="deleteAssignment('${a._id}')" style="font-size:.75rem;color:var(--danger);border-color:var(--danger)">Delete</button>`);
+      actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-del" onclick="deleteAssignment('${a._id}')">Delete</button>`);
     }
 
     const reqBy = `<div style="font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px" title="${escHtml(a.requested_by||'')}">${escHtml((a.requested_by||"—").split("@")[0])}</div>
@@ -4134,7 +4149,7 @@ function renderAssignmentsTable() {
       <td>${renderAssignSubjectsCell(a.subjects, a._id)}</td>
       <td>${statusBadge}${allocLine}</td>
       <td>${linksCell}</td>
-      <td style="text-align:right"><div style="display:flex;gap:5px;justify-content:flex-end">${actions.join("")}</div></td>
+      <td><div class="assign-actions-wrap">${actions.join("")}</div></td>
     </tr>
     <tr id="assign-detail-${a._id}" style="display:none;background:#f8fafc">
       <td colspan="7" style="padding:0 16px 14px 48px">
