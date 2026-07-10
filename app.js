@@ -2455,17 +2455,19 @@ function parseConfigCSV(file) {
     const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
     if (!lines.length) { toast("Empty CSV file", "error"); return; }
     const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/\s+/g, "_"));
+    // Normalise old "config_link" column name to "main_config_link" for backward compat
+    const normHeaders = headers.map(h => h === "config_link" ? "main_config_link" : h);
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
       const vals = lines[i].split(",").map(v => v.trim().replace(/^"|"$/g, ""));
       const row = {};
-      headers.forEach((h, j) => { row[h] = vals[j] || ""; });
-      if (row.phase && row.week && row.config_link) rows.push(row);
+      normHeaders.forEach((h, j) => { row[h] = vals[j] || ""; });
+      if (row.phase && row.week && row.main_config_link) rows.push(row);
     }
-    const requiredCols = ["phase","batch","week","config_link","assessment_date"];
-    const missingCols = requiredCols.filter(r => !headers.includes(r));
+    const requiredCols = ["phase","batch","week","main_config_link","assessment_date"];
+    const missingCols = requiredCols.filter(r => !normHeaders.includes(r));
     if (missingCols.length) { toast(`CSV missing columns: ${missingCols.join(", ")}`, "error"); return; }
-    if (!rows.length) { toast("No valid rows found. Check required columns: phase, batch, week, config_link, assessment_date", "error"); return; }
+    if (!rows.length) { toast("No valid rows found. Check required columns: phase, batch, week, main_config_link, assessment_date", "error"); return; }
     configCsvRows = rows;
     renderConfigCsvPreview();
   };
@@ -2478,7 +2480,7 @@ function renderConfigCsvPreview() {
   const count = document.getElementById("config-upload-count");
   preview.style.display = "";
   count.textContent = `${configCsvRows.length} row${configCsvRows.length !== 1 ? "s" : ""} ready to upload`;
-  const heads = ["phase", "batch", "week", "assessment_date", "config_link"];
+  const heads = ["phase", "batch", "week", "assessment_date", "main_config_link", "mock_config_link"];
   tableDiv.innerHTML = `<div class="table-wrapper" style="max-height:260px;overflow-y:auto"><table>
     <thead><tr>${heads.map(h => `<th>${h}</th>`).join("")}</tr></thead>
     <tbody>${configCsvRows.slice(0, 20).map(r => `<tr>${heads.map(h => `<td>${escHtml(r[h] || "")}</td>`).join("")}</tr>`).join("")}
@@ -2501,7 +2503,7 @@ window.uploadConfigsCSV = async () => {
       ));
       if (!snap.empty) {
         await updateDoc(doc(db, "configs", snap.docs[0].id), {
-          config_link: row.config_link, status: "submitted",
+          config_link: row.main_config_link, status: "submitted",
           assessment_date: row.assessment_date || snap.docs[0].data().assessment_date || "",
           ...(row.mock_config_link ? { mock_config_link: row.mock_config_link } : {}),
           submittedBy: currentUserEmail, submittedAt: serverTimestamp()
@@ -2511,7 +2513,7 @@ window.uploadConfigsCSV = async () => {
         await addDoc(collection(db, "configs"), {
           phase, batch, week,
           assessment_date: row.assessment_date || "",
-          config_link: row.config_link, status: "submitted",
+          config_link: row.main_config_link, status: "submitted",
           ...(row.mock_config_link ? { mock_config_link: row.mock_config_link } : {}),
           submittedBy: currentUserEmail, submittedAt: serverTimestamp(),
           createdAt: serverTimestamp()
@@ -2543,8 +2545,8 @@ window.clearConfigsPreview = () => {
 
 window.downloadConfigTemplate = () => {
   const rows = [
-    ["phase", "batch", "week", "assessment_date", "config_link", "mock_config_link"],
-    ["P1", "B1", "W1", "2026-06-16", "https://example.com/config", "https://example.com/mock-config"]
+    ["phase", "batch", "week", "assessment_date", "main_config_link", "mock_config_link"],
+    ["P1", "B1", "W1", "2026-06-16", "https://example.com/main-config", "https://example.com/mock-config"]
   ];
   downloadCSV(rows, "config_template.csv");
 };
