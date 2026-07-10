@@ -591,12 +591,26 @@ code {
 /* Right-side portrait drawer (eval student modal) */
 .modal-backdrop.drawer { justify-content: flex-end; align-items: stretch; }
 .modal-backdrop.drawer > .modal {
-  border-radius: 20px 0 0 20px; width: 520px; max-width: 100vw;
+  border-radius: 20px 0 0 20px; width: 620px; max-width: 100vw;
   height: 100vh; max-height: 100vh;
   box-shadow: -8px 0 40px rgba(0,0,0,.18);
   animation: drawerIn .22s cubic-bezier(.25,.46,.45,.94);
 }
 @keyframes drawerIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Full-screen modal (eval student list) */
+.modal-backdrop.fullscreen {
+  align-items: stretch; justify-content: stretch;
+  backdrop-filter: none; background: var(--bg);
+}
+.modal-backdrop.fullscreen > .modal {
+  width: 100vw; max-width: 100vw;
+  height: 100vh; max-height: 100vh;
+  border-radius: 0; box-shadow: none; padding: 0;
+  display: flex; flex-direction: column;
+  animation: none;
+}
+@keyframes fsIn { from { opacity: 0; } to { opacity: 1; } }
 .modal-footer {
   display: flex; gap: 10px; justify-content: flex-end;
   margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);

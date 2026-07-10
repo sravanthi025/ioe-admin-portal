@@ -2042,39 +2042,44 @@
 </div>
 
 <!-- EVALUATION LIST MODAL -->
-<div class="modal-backdrop" id="eval-list-modal">
-  <div class="modal" style="max-width:960px;width:90vw;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
-    <div style="padding:20px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-      <div>
-        <h3 id="el-title" style="margin:0 0 2px">Evaluation</h3>
-        <p id="el-sub" style="margin:0;font-size:.8rem;color:var(--muted)"></p>
+<div class="modal-backdrop fullscreen" id="eval-list-modal">
+  <div class="modal">
+    <!-- Top bar -->
+    <div style="padding:16px 28px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--surface)">
+      <div style="display:flex;align-items:center;gap:14px;min-width:0">
+        <button class="btn btn-outline btn-sm" onclick="closeModal('eval-list-modal')" style="flex-shrink:0;display:flex;align-items:center;gap:5px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div style="min-width:0">
+          <h3 id="el-title" style="margin:0;font-size:1.1rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Evaluation</h3>
+          <p id="el-sub" style="margin:0;font-size:.78rem;color:var(--muted)"></p>
+        </div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span id="el-progress" style="font-size:.82rem;color:var(--muted);margin-right:4px"></span>
         <button class="btn btn-outline btn-sm guest-action" onclick="importSubmissionsCSV()" title="Upload Google Form responses CSV to auto-fill GitHub &amp; Deployment links">↑ Import Links CSV</button>
         <button class="btn btn-outline btn-sm guest-action" onclick="downloadEvalCSV()">↓ Export Eval CSV</button>
         <input type="file" id="submissions-csv-input" accept=".csv" style="display:none" onchange="handleSubmissionsCSV(event)" />
       </div>
     </div>
+    <!-- Student table -->
     <div style="flex:1;overflow-y:auto">
       <table class="data-table" style="margin:0;border-radius:0">
         <thead>
           <tr>
-            <th style="width:32px">#</th>
-            <th style="min-width:130px">Student Name</th>
-            <th style="min-width:80px">UID</th>
-            <th style="min-width:60px">Set</th>
-            <th style="min-width:70px">Links</th>
-            <th style="min-width:55px">Score</th>
-            <th style="min-width:140px">Band</th>
-            <th style="text-align:right;min-width:90px">Action</th>
+            <th style="width:36px">#</th>
+            <th style="min-width:160px">Student Name</th>
+            <th style="min-width:100px">UID</th>
+            <th style="min-width:70px">Set</th>
+            <th style="min-width:80px">Links</th>
+            <th style="min-width:70px">Score</th>
+            <th style="min-width:160px">Band</th>
+            <th style="text-align:right;min-width:110px">Action</th>
           </tr>
         </thead>
         <tbody id="el-tbody"></tbody>
       </table>
-    </div>
-    <div style="padding:12px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
-      <span id="el-progress" style="font-size:.82rem;color:var(--muted)"></span>
-      <button class="btn btn-outline" onclick="closeModal('eval-list-modal')">Close</button>
     </div>
   </div>
 </div>
