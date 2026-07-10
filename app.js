@@ -4107,39 +4107,49 @@ function renderAssignmentsTable() {
       ? `<button class="btn btn-outline btn-sm" onclick="openViewLinksModal('${a._id}')" style="font-size:.75rem;white-space:nowrap;color:#1d4ed8;border-color:#bfdbfe">${linkCount} link${linkCount > 1 ? "s" : ""} ↗</button>`
       : `<span style="color:var(--muted);font-size:.8rem">—</span>`;
 
-    const actions = [];
-
-    // Edit / Submit Links — Content + Admin
-    if (!isGuest && (isContent || isAdmin)) {
-      actions.push(`<button class="btn btn-primary btn-sm assign-action-btn" onclick="openSubmitLinksModal('${a._id}')">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`);
+    // ── Primary action button (one per row) ──────────────────
+    let primaryBtn = "";
+    if (!isGuest) {
+      if ((isInstructor || isAdmin) && allocCount > 0) {
+        const lbl = evalDone > 0 ? `Evaluate (${evalDone}/${allocCount})` : "Evaluate";
+        primaryBtn = `<button class="btn btn-sm am-primary-eval" onclick="openEvalListModal('${a._id}')">${lbl}</button>`;
+      } else if (isContent || isAdmin) {
+        primaryBtn = `<button class="btn btn-primary btn-sm" style="font-size:.75rem;white-space:nowrap" onclick="openSubmitLinksModal('${a._id}')">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`;
+      } else if ((isOnGround) && allocCount > 0) {
+        primaryBtn = `<button class="btn btn-outline btn-sm" style="font-size:.75rem;white-space:nowrap" onclick="downloadAllocationCSV('${a._id}')">↓ CSV</button>`;
+      }
+    } else if (allocCount > 0) {
+      const lbl = evalDone > 0 ? `View Eval (${evalDone}/${allocCount})` : `View Students`;
+      primaryBtn = `<button class="btn btn-sm am-primary-eval" onclick="openEvalListModal('${a._id}')">${lbl}</button>`;
     }
 
-    // Download CSV — OnGround + Admin (disabled until students are allocated)
-    if (!isGuest && (isOnGround || isAdmin)) {
-      if (allocCount > 0) {
-        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn" onclick="downloadAllocationCSV('${a._id}')" title="Download student-set allocation CSV">↓ CSV</button>`);
-      } else {
-        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-dim" disabled title="No students allocated yet">↓ CSV</button>`);
+    // ── ⋮ overflow menu items ─────────────────────────────────
+    const menuItems = [];
+    if (!isGuest) {
+      if (isAdmin || isContent) {
+        menuItems.push(`<button class="am-item" onclick="closeAM();openSubmitLinksModal('${a._id}')">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`);
+      }
+      if (linkCount > 0) {
+        menuItems.push(`<button class="am-item" onclick="closeAM();openViewLinksModal('${a._id}')">View Links</button>`);
+      }
+      if (isOnGround || isAdmin) {
+        menuItems.push(allocCount > 0
+          ? `<button class="am-item" onclick="closeAM();downloadAllocationCSV('${a._id}')">↓ Download CSV</button>`
+          : `<button class="am-item" style="opacity:.4;pointer-events:none" disabled>↓ Download CSV</button>`);
+      }
+      if (isAdmin) {
+        menuItems.push(`<div class="am-sep"></div>`);
+        menuItems.push(`<button class="am-item danger" onclick="closeAM();deleteAssignment('${a._id}')">Delete</button>`);
       }
     }
 
-    // Evaluate — Instructor + Admin (disabled until students are allocated); guest sees View Students
-    if (!isGuest && (isInstructor || isAdmin)) {
-      if (allocCount > 0) {
-        const evalLabel = evalDone > 0 ? `Evaluate (${evalDone}/${allocCount})` : "Evaluate";
-        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval" onclick="openEvalListModal('${a._id}')">${evalLabel}</button>`);
-      } else {
-        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval assign-action-dim" disabled title="No students allocated yet">Evaluate</button>`);
-      }
-    } else if (isGuest && allocCount > 0) {
-      const guestLabel = evalDone > 0 ? `View Eval (${evalDone}/${allocCount})` : `View Students (${allocCount})`;
-      actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval" onclick="openEvalListModal('${a._id}')">${guestLabel}</button>`);
-    }
-
-    // Delete — Admin only
-    if (!isGuest && isAdmin) {
-      actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-del" onclick="deleteAssignment('${a._id}')">Delete</button>`);
-    }
+    // Only show ⋮ if there are items that aren't already the primary
+    const showMore = menuItems.length > 0;
+    const moreBtn = showMore
+      ? `<div style="position:relative;display:inline-block">
+          <button class="am-btn" onclick="openAM('${a._id}',this)" title="More actions">⋮</button>
+          <div class="am-menu" id="am-${a._id}">${menuItems.join("")}</div>
+        </div>` : "";
 
     const reqBy = `<div style="font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px" title="${escHtml(a.requested_by||'')}">${escHtml((a.requested_by||"—").split("@")[0])}</div>
       <div style="font-size:.68rem;color:var(--muted)">${formatDate(a.requested_at)}</div>`;
@@ -4151,7 +4161,7 @@ function renderAssignmentsTable() {
       <td>${renderAssignSubjectsCell(a.subjects, a._id)}</td>
       <td>${statusBadge}${allocLine}</td>
       <td>${linksCell}</td>
-      <td><div class="assign-actions-wrap">${actions.join("")}</div></td>
+      <td><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">${primaryBtn}${moreBtn}</div></td>
     </tr>
     <tr id="assign-detail-${a._id}" style="display:none;background:#f8fafc">
       <td colspan="7" style="padding:0 16px 14px 48px">
@@ -4361,6 +4371,30 @@ window.downloadAllocationCSV = (id) => {
   const lnk  = document.createElement("a");
   lnk.href = url; lnk.download = `allocation_${[a.phase,a.batch,a.week].filter(Boolean).join("_")}.csv`; lnk.click();
   URL.revokeObjectURL(url);
+};
+
+// ── ASSIGNMENT ROW ⋮ MENU ─────────────────────────────────────
+let _amOpen = null;
+window.openAM = (id, btn) => {
+  if (_amOpen && _amOpen !== id) window.closeAM();
+  const menu = document.getElementById(`am-${id}`);
+  if (!menu) return;
+  if (menu.classList.contains("open")) { window.closeAM(); return; }
+  const r = btn.getBoundingClientRect();
+  menu.style.position = "fixed";
+  menu.style.top  = (r.bottom + 4) + "px";
+  menu.style.right = (window.innerWidth - r.right) + "px";
+  menu.style.left  = "auto";
+  menu.classList.add("open");
+  _amOpen = id;
+  setTimeout(() => document.addEventListener("click", _amOutside, { once: true }), 0);
+};
+const _amOutside = () => window.closeAM();
+window.closeAM = () => {
+  if (!_amOpen) return;
+  const m = document.getElementById(`am-${_amOpen}`);
+  if (m) m.classList.remove("open");
+  _amOpen = null;
 };
 
 // ── EVALUATION STATE ──────────────────────────────────────────
