@@ -731,8 +731,8 @@ window.addStudentManually = async () => {
 window.downloadTemplate = () => {
   downloadCSV(
     [
-      ["uid", "phase", "batch", "name", "email", "student_id", "contact_number", "assessment_date"],
-      ["UID001", "Phase 1", "Batch A", "John Doe", "john@college.edu", "STU-2024-001", "9876543210", "2024-03-15"]
+      ["phase", "batch", "week", "uid", "student_id", "name", "email", "contact_number", "assessment_date"],
+      ["P1", "B1", "W1", "UID001", "STU-2024-001", "John Doe", "john@college.edu", "9876543210", "2024-03-15"]
     ],
     "student_template.csv"
   );
@@ -1605,9 +1605,20 @@ window.uploadSyllabusCSV = async () => {
     const groups = {};
     syllabusCsvRows.forEach(row => {
       const key = `${row.phase}||${row.batch}||${row.week}`;
-      if (!groups[key]) groups[key] = { phase: row.phase || "", batch: row.batch || "", week: row.week || "", subjects: [], assessment_date: "" };
+      if (!groups[key]) groups[key] = {
+        phase: row.phase || "", batch: row.batch || "", week: row.week || "",
+        subjects: [], assessment_date: "",
+        start_time: "", end_time: "",
+        mock_assessment: "", mock_date: "", mock_start_time: "", mock_end_time: ""
+      };
       if (row.subjects) groups[key].subjects.push({ name: row.subjects, topics: row.topics || "" });
       if (row.assessment_date && !groups[key].assessment_date) groups[key].assessment_date = row.assessment_date;
+      if (row.start_time      && !groups[key].start_time)      groups[key].start_time      = row.start_time;
+      if (row.end_time        && !groups[key].end_time)        groups[key].end_time        = row.end_time;
+      if (row.mock_assessment && !groups[key].mock_assessment) groups[key].mock_assessment = row.mock_assessment;
+      if (row.mock_date       && !groups[key].mock_date)       groups[key].mock_date       = row.mock_date;
+      if (row.mock_start_time && !groups[key].mock_start_time) groups[key].mock_start_time = row.mock_start_time;
+      if (row.mock_end_time   && !groups[key].mock_end_time)   groups[key].mock_end_time   = row.mock_end_time;
     });
     const entries = Object.values(groups).filter(e => e.phase && e.week && e.subjects.length);
 
@@ -1625,12 +1636,20 @@ window.uploadSyllabusCSV = async () => {
         const existingSubjects = existingDoc.data().subjects || [];
         await updateDoc(doc(db, "syllabus", existingDoc.id), {
           subjects: [...existingSubjects, ...entry.subjects],
-          ...(entry.assessment_date ? { assessment_date: entry.assessment_date } : {})
+          ...(entry.assessment_date ? { assessment_date: entry.assessment_date } : {}),
+          ...(entry.start_time      ? { start_time:      entry.start_time }      : {}),
+          ...(entry.end_time        ? { end_time:        entry.end_time }        : {}),
+          ...(entry.mock_assessment ? { mock_assessment: entry.mock_assessment } : {}),
+          ...(entry.mock_date       ? { mock_date:       entry.mock_date }       : {}),
+          ...(entry.mock_start_time ? { mock_start_time: entry.mock_start_time } : {}),
+          ...(entry.mock_end_time   ? { mock_end_time:   entry.mock_end_time }   : {}),
         });
         merged++;
       } else {
         await addDoc(collection(db, "syllabus"), { ...entry, addedAt: serverTimestamp() });
-        await ensureConfigDoc(entry.phase, entry.batch, entry.week, entry.assessment_date);
+        await ensureConfigDoc(entry.phase, entry.batch, entry.week, entry.assessment_date,
+          entry.start_time, entry.end_time,
+          entry.mock_assessment, entry.mock_date, entry.mock_start_time, entry.mock_end_time);
         newEntryLabels.push(`${entry.week} (${entry.phase}${entry.batch ? ", " + entry.batch : ""})`);
         created++;
       }
@@ -1669,10 +1688,10 @@ window.uploadSyllabusCSV = async () => {
 window.downloadSyllabusTemplate = () => {
   downloadCSV(
     [
-      ["phase", "batch", "week", "subjects", "topics", "assessment_date"],
-      ["Phase 1", "Batch A", "Week 1", "Mathematics", "Number Systems, Algebra, Quadratic Equations", "2024-03-15"],
-      ["Phase 1", "Batch A", "Week 1", "Data Structures", "Arrays, Linked Lists, Stacks", "2024-03-15"],
-      ["Phase 1", "Batch A", "Week 2", "Physics", "Kinematics, Dynamics", "2024-03-22"]
+      ["phase", "batch", "week", "assessment_date", "start_time", "end_time", "mock_assessment", "mock_date", "mock_start_time", "mock_end_time", "subjects", "topics"],
+      ["P1", "B1", "W1", "2024-03-15", "10:00", "12:00", "required", "2024-03-14", "14:00", "16:00", "Mathematics", "Number Systems, Algebra, Quadratic Equations"],
+      ["P1", "B1", "W1", "2024-03-15", "", "", "", "", "", "", "Data Structures", "Arrays, Linked Lists, Stacks"],
+      ["P1", "B1", "W2", "2024-03-22", "10:00", "12:00", "not_required", "", "", "", "Physics", "Kinematics, Dynamics"]
     ],
     "syllabus_template.csv"
   );
@@ -2484,6 +2503,7 @@ window.uploadConfigsCSV = async () => {
         await updateDoc(doc(db, "configs", snap.docs[0].id), {
           config_link: row.config_link, status: "submitted",
           assessment_date: row.assessment_date || snap.docs[0].data().assessment_date || "",
+          ...(row.mock_config_link ? { mock_config_link: row.mock_config_link } : {}),
           submittedBy: currentUserEmail, submittedAt: serverTimestamp()
         });
         updated++;
@@ -2492,6 +2512,7 @@ window.uploadConfigsCSV = async () => {
           phase, batch, week,
           assessment_date: row.assessment_date || "",
           config_link: row.config_link, status: "submitted",
+          ...(row.mock_config_link ? { mock_config_link: row.mock_config_link } : {}),
           submittedBy: currentUserEmail, submittedAt: serverTimestamp(),
           createdAt: serverTimestamp()
         });
@@ -2522,8 +2543,8 @@ window.clearConfigsPreview = () => {
 
 window.downloadConfigTemplate = () => {
   const rows = [
-    ["phase", "batch", "week", "assessment_date", "config_link"],
-    ["Phase 1", "Batch A", "Week 1", "2026-06-16", "https://example.com/config"]
+    ["phase", "batch", "week", "assessment_date", "config_link", "mock_config_link"],
+    ["P1", "B1", "W1", "2026-06-16", "https://example.com/config", "https://example.com/mock-config"]
   ];
   downloadCSV(rows, "config_template.csv");
 };
@@ -3793,6 +3814,16 @@ async function loadInterviews() {
   const statIds = ["iv-stat-total","iv-stat-pending","iv-stat-scheduled","iv-stat-completed","iv-stat-noshow","iv-stat-cancelled"];
   statIds.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
   setTbody("iv-tbody", 6, "Loading...");
+
+  // Ensure student data is loaded so the request form can work
+  if (!allStudents.length) {
+    try {
+      const snap = await getDocs(collection(db, "students"));
+      allStudents = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    } catch (_) { /* non-fatal */ }
+  }
+  populateIVRequestFilters();
+
   try {
     const resp = await fetch("/api/ic-interviews");
     const data = await resp.json();
@@ -3840,6 +3871,166 @@ async function loadInterviews() {
     setTbody("iv-tbody", 6, e.message);
   }
 }
+
+// ── INTERVIEW REQUEST FORM ─────────────────────────────────────
+
+function populateIVRequestFilters() {
+  const phases = [...new Set(allStudents.map(s => s.phase).filter(Boolean))].sort();
+  const sel = document.getElementById("iv-req-phase");
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">All Phases</option>` +
+    phases.map(p => `<option value="${p}"${p === cur ? " selected" : ""}>${p}</option>`).join("");
+  _ivPopulateBatches();
+  _ivPopulateWeeks();
+  filterIVStudents();
+}
+
+function _ivPopulateBatches() {
+  const phase = document.getElementById("iv-req-phase")?.value || "";
+  const sel   = document.getElementById("iv-req-batch");
+  if (!sel) return;
+  const cur = sel.value;
+  const batches = [...new Set(
+    allStudents.filter(s => !phase || s.phase === phase).map(s => s.batch).filter(Boolean)
+  )].sort();
+  sel.innerHTML = `<option value="">All Batches</option>` +
+    batches.map(b => `<option value="${b}"${b === cur ? " selected" : ""}>${b}</option>`).join("");
+}
+
+function _ivPopulateWeeks() {
+  const phase = document.getElementById("iv-req-phase")?.value || "";
+  const batch = document.getElementById("iv-req-batch")?.value || "";
+  const sel   = document.getElementById("iv-req-week");
+  if (!sel) return;
+  const cur = sel.value;
+  const weeks = [...new Set(
+    allStudents.filter(s => (!phase || s.phase === phase) && (!batch || s.batch === batch))
+      .map(s => s.week).filter(Boolean)
+  )].sort();
+  sel.innerHTML = `<option value="">All Weeks</option>` +
+    weeks.map(w => `<option value="${w}"${w === cur ? " selected" : ""}>${w}</option>`).join("");
+}
+
+window.onIVReqPhaseChange = () => {
+  const bSel = document.getElementById("iv-req-batch");
+  const wSel = document.getElementById("iv-req-week");
+  if (bSel) bSel.value = "";
+  if (wSel) wSel.value = "";
+  _ivPopulateBatches();
+  _ivPopulateWeeks();
+  filterIVStudents();
+};
+
+window.onIVReqBatchChange = () => {
+  const wSel = document.getElementById("iv-req-week");
+  if (wSel) wSel.value = "";
+  _ivPopulateWeeks();
+  filterIVStudents();
+};
+
+window.filterIVStudents = () => {
+  const phase = document.getElementById("iv-req-phase")?.value || "";
+  const batch = document.getElementById("iv-req-batch")?.value || "";
+  const week  = document.getElementById("iv-req-week")?.value  || "";
+  if (!phase && !batch && !week) {
+    const tbody = document.getElementById("iv-req-tbody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5"><div class="loading-overlay" style="padding:32px;color:var(--muted)">Select a Phase, Batch, or Week above to load students</div></td></tr>`;
+    updateIVSelectionCount();
+    return;
+  }
+  const filtered = allStudents.filter(s =>
+    (!phase || s.phase === phase) &&
+    (!batch || s.batch === batch) &&
+    (!week  || s.week  === week)
+  );
+  renderIVStudentTable(filtered);
+};
+
+function renderIVStudentTable(students) {
+  const tbody = document.getElementById("iv-req-tbody");
+  if (!tbody) return;
+  const sa = document.getElementById("iv-req-select-all");
+  if (sa) sa.checked = false;
+  if (!students.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="loading-overlay" style="padding:28px">No students found for these filters</div></td></tr>`;
+    updateIVSelectionCount();
+    return;
+  }
+  tbody.innerHTML = students.map(s => `
+    <tr>
+      <td style="text-align:center">
+        <input type="checkbox" class="iv-req-chk"
+          data-uid="${escHtml(s.uid||"")}"
+          data-name="${escHtml(s.name||"")}"
+          data-email="${escHtml(s.email||"")}"
+          data-phase="${escHtml(s.phase||"")}"
+          data-batch="${escHtml(s.batch||"")}"
+          data-week="${escHtml(s.week||"")}"
+          onchange="updateIVSelectionCount()">
+      </td>
+      <td style="font-family:monospace;font-size:.8rem;color:var(--text-sub)">${escHtml(s.uid||"—")}</td>
+      <td style="font-weight:600;font-size:.84rem">${escHtml(s.name||"—")}</td>
+      <td style="font-size:.78rem;color:var(--muted)">${escHtml(s.email||"—")}</td>
+      <td>${pbwCell(s.phase, s.batch, s.week)}</td>
+    </tr>`).join("");
+  updateIVSelectionCount();
+}
+
+window.toggleSelectAllIV = (cb) => {
+  document.querySelectorAll(".iv-req-chk").forEach(c => c.checked = cb.checked);
+  updateIVSelectionCount();
+};
+
+function updateIVSelectionCount() {
+  const n = document.querySelectorAll(".iv-req-chk:checked").length;
+  const el = document.getElementById("iv-req-sel-count");
+  if (el) el.textContent = `${n} student${n !== 1 ? "s" : ""} selected`;
+}
+
+window.submitInterviewRequest = async () => {
+  const date = document.getElementById("iv-req-date")?.value;
+  if (!date) { toast("Please select an interview date", "error"); return; }
+
+  const selected = [...document.querySelectorAll(".iv-req-chk:checked")].map(c => ({
+    uid:   c.dataset.uid,
+    name:  c.dataset.name,
+    email: c.dataset.email,
+    phase: c.dataset.phase,
+    batch: c.dataset.batch,
+    week:  c.dataset.week,
+  }));
+  if (!selected.length) { toast("Please select at least one student", "error"); return; }
+
+  const btn = document.getElementById("iv-req-submit-btn");
+  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> Sending...`; }
+
+  try {
+    const r = await fetch("/api/ic-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ students: selected, requestedDate: date, requestedBy: currentUserEmail }),
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || "Request failed");
+
+    toast(`Interview request sent for ${selected.length} student${selected.length !== 1 ? "s" : ""} — date: ${date}`, "success");
+    // Reset form
+    document.querySelectorAll(".iv-req-chk").forEach(c => c.checked = false);
+    const sa = document.getElementById("iv-req-select-all");
+    if (sa) sa.checked = false;
+    const datEl = document.getElementById("iv-req-date");
+    if (datEl) datEl.value = "";
+    updateIVSelectionCount();
+  } catch (e) {
+    toast("Error: " + e.message, "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send to Interview Coordinator`;
+    }
+  }
+};
 
 function renderAssignSubjectsCell(subjects, id) {
   if (!subjects || !subjects.length) return `<span style="color:var(--muted);font-size:.82rem">—</span>`;

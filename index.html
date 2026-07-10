@@ -748,7 +748,7 @@
         <div class="card">
           <h3>Upload Syllabus CSV</h3>
           <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">
-            Required columns: <strong>phase &bull; batch &bull; week &bull; subjects &bull; topics &bull; assessment_date</strong>
+            Required columns: <strong>phase &bull; batch &bull; week &bull; subjects &bull; topics &bull; assessment_date</strong> &nbsp;|&nbsp; Optional: <strong>start_time &bull; end_time &bull; mock_assessment &bull; mock_date &bull; mock_start_time &bull; mock_end_time</strong>
           </p>
           <div class="upload-zone" id="syllabus-upload-zone"
                onclick="document.getElementById('syllabus-csv-input').click()"
@@ -895,7 +895,7 @@
         <div class="card">
           <h3>Upload Config CSV</h3>
           <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">
-            Required columns: <strong>phase &bull; batch &bull; week &bull; config_link &bull; assessment_date</strong>
+            Required columns: <strong>phase &bull; batch &bull; week &bull; config_link &bull; assessment_date</strong> &nbsp;|&nbsp; Optional: <strong>mock_config_link</strong>
           </p>
           <div class="upload-zone" id="config-upload-zone"
                onclick="document.getElementById('config-csv-input').click()"
@@ -1136,11 +1136,76 @@
         </div>
       </div>
 
+      <!-- Request Interviews Card -->
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:.95rem;font-weight:700;color:var(--text)">Request Interviews</div>
+            <p style="margin:4px 0 0;font-size:.82rem;color:var(--muted)">Filter students by phase, batch and week — select who needs a human interview and pick a date. The request goes directly to Interview Coordinator to schedule.</p>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+          <div>
+            <label style="font-size:.74rem;font-weight:600;color:var(--text-sub);text-transform:none;letter-spacing:0;margin-bottom:5px">Phase</label>
+            <select id="iv-req-phase" onchange="onIVReqPhaseChange()" style="margin-bottom:0">
+              <option value="">All Phases</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.74rem;font-weight:600;color:var(--text-sub);text-transform:none;letter-spacing:0;margin-bottom:5px">Batch</label>
+            <select id="iv-req-batch" onchange="onIVReqBatchChange()" style="margin-bottom:0">
+              <option value="">All Batches</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.74rem;font-weight:600;color:var(--text-sub);text-transform:none;letter-spacing:0;margin-bottom:5px">Week</label>
+            <select id="iv-req-week" onchange="filterIVStudents()" style="margin-bottom:0">
+              <option value="">All Weeks</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.74rem;font-weight:600;color:var(--text-sub);text-transform:none;letter-spacing:0;margin-bottom:5px">Interview Date</label>
+            <input type="date" id="iv-req-date" style="margin-bottom:0">
+          </div>
+        </div>
+
+        <!-- Student selection table -->
+        <div class="table-wrapper" style="max-height:280px;margin-bottom:14px">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:44px;text-align:center">
+                  <input type="checkbox" id="iv-req-select-all" onchange="toggleSelectAllIV(this)" title="Select all visible">
+                </th>
+                <th>UID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phase / Batch / Week</th>
+              </tr>
+            </thead>
+            <tbody id="iv-req-tbody">
+              <tr><td colspan="5"><div class="loading-overlay" style="padding:32px;color:var(--muted)">Select a Phase, Batch, or Week above to load students</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span id="iv-req-sel-count" style="font-size:.82rem;color:var(--muted);font-weight:500">0 students selected</span>
+          <button class="btn btn-primary guest-action" id="iv-req-submit-btn" onclick="submitInterviewRequest()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Send to Interview Coordinator
+          </button>
+        </div>
+      </div>
+
       <!-- Info banner -->
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:4px">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <div style="font-size:.85rem;color:#1e40af;line-height:1.5">
-          Interviews for Intensive Offline students are <strong>scheduled and managed in Interview Coordinator</strong>. Stats below are read-only. To schedule or update interviews, use the Interview Coordinator tool.
+          Interview stats below are read-only, sourced live from Interview Coordinator.
         </div>
       </div>
 
