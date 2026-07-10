@@ -4060,37 +4060,6 @@ window.toggleAssignDetail = (id, btn) => {
   btn.textContent = open ? "▼ View topics" : "▲ Hide topics";
 };
 
-// SVG icon helpers (inline, no external deps)
-const _ico = {
-  link:     `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
-  eye:      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
-  download: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
-  trash:    `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
-  dots:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>`,
-};
-
-window.openAssignMenu = (id, btn) => {
-  window.closeAssignMenu();
-  const menu = document.getElementById(`amenu-${id}`);
-  if (!menu) return;
-  const r = btn.getBoundingClientRect();
-  menu.style.top   = `${r.bottom + window.scrollY + 4}px`;
-  menu.style.right  = `${window.innerWidth - r.right}px`;
-  menu.classList.add("open");
-  setTimeout(() => {
-    const close = (e) => {
-      if (!menu.contains(e.target) && e.target !== btn) {
-        menu.classList.remove("open");
-        document.removeEventListener("click", close);
-      }
-    };
-    document.addEventListener("click", close);
-  }, 0);
-};
-window.closeAssignMenu = () => {
-  document.querySelectorAll(".arow-menu.open").forEach(m => m.classList.remove("open"));
-};
-
 function renderAssignmentsTable() {
   const q   = (document.getElementById("assign-search")?.value || "").toLowerCase();
   const phF = document.getElementById("assign-phase-filter")?.value || "";
@@ -4108,7 +4077,7 @@ function renderAssignmentsTable() {
   if (!tbody) return;
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><h3>No requests found</h3><p>No assignment requests match your filters.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><h3>No requests found</h3><p>No assignment requests match your filters.</p></div></td></tr>`;
     return;
   }
 
@@ -4117,106 +4086,75 @@ function renderAssignmentsTable() {
   const isOnGround   = currentUserTeam === "On Ground Team";
   const isInstructor = currentUserTeam === "Instructor";
 
-  tbody.innerHTML = data.map((a) => {
-    const pbw        = [a.phase, a.batch, a.week].filter(Boolean).join(" · ");
+  tbody.innerHTML = data.map((a, i) => {
+    const pbw = [a.phase, a.batch, a.week].filter(Boolean).join(" · ");
+    const domainPill = a.domain
+      ? `<span style="font-size:.68rem;background:#ede9fe;color:#7c3aed;border-radius:4px;padding:1px 5px;margin-left:5px;vertical-align:middle">${a.domain}</span>`
+      : "";
+    const mockBadge = a.mock_required
+      ? `<span class="badge badge-mock-req" style="font-size:.68rem;white-space:nowrap">Mock</span>`
+      : `<span class="badge" style="font-size:.68rem;white-space:nowrap;background:#f1f5f9;color:#64748b;border-color:#e2e8f0">Main Only</span>`;
     const allocCount = (a.allocations || []).length;
     const evalDone   = Object.keys(a.evaluations || {}).length;
-    const linkCount  = (a.links || []).length;
-    const isSubmitted = a.status === "submitted";
+    const statusBadge = a.status === "submitted"
+      ? `<span class="badge badge-approved" style="font-size:.68rem;white-space:nowrap">Submitted</span>`
+      : `<span class="badge badge-pending" style="font-size:.68rem;white-space:nowrap">Pending</span>`;
+    const allocLine = allocCount
+      ? `<div style="font-size:.7rem;color:#16a34a;margin-top:3px">${allocCount} students allocated</div>`
+      : (a.status === "submitted" ? `<div style="font-size:.7rem;color:#d97706;margin-top:3px">No students in batch</div>` : "");
+    const linkCount = (a.links || []).length;
+    const linksCell = linkCount > 0
+      ? `<button class="btn btn-outline btn-sm" onclick="openViewLinksModal('${a._id}')" style="font-size:.75rem;white-space:nowrap;color:#1d4ed8;border-color:#bfdbfe">${linkCount} link${linkCount > 1 ? "s" : ""} ↗</button>`
+      : `<span style="color:var(--muted);font-size:.8rem">—</span>`;
 
-    // ── Assignment cell ──────────────────────────────────
-    const domainPill = a.domain
-      ? `<span class="arow-pill" style="background:#f3f0ff;color:#7c3aed">${escHtml(a.domain)}</span>` : "";
-    const mockPill = a.mock_required
-      ? `<span class="arow-pill" style="background:#fff7ed;color:#c2410c">Mock</span>`
-      : `<span class="arow-pill" style="background:#f1f5f9;color:#64748b">Main</span>`;
-    const requester = escHtml((a.requested_by || "").split("@")[0] || "—");
+    const actions = [];
 
-    // ── Status cell ───────────────────────────────────────
-    const dotColor = isSubmitted ? "#22c55e" : "#f59e0b";
-    const statusLabel = isSubmitted ? "Submitted" : "Pending";
-    const allocNote = allocCount
-      ? `<div class="arow-alloc">${allocCount} students allocated</div>`
-      : (isSubmitted ? `<div class="arow-alloc" style="color:#d97706">No students in batch</div>` : "");
-    const linkChip = linkCount > 0
-      ? `<button class="arow-link-chip" onclick="openViewLinksModal('${a._id}')">${linkCount} link${linkCount > 1 ? "s" : ""} ↗</button>` : "";
-
-    // ── Progress cell ──────────────────────────────────────
-    let progressCell = `<span style="color:var(--muted);font-size:.8rem;font-style:italic">Not started</span>`;
-    if (allocCount > 0) {
-      const pct = Math.round((evalDone / allocCount) * 100);
-      const fillColor = pct === 100 ? "#22c55e" : "#7c3aed";
-      progressCell = `<div class="arow-prog-frac">${evalDone}<span style="color:var(--muted);font-weight:400"> / ${allocCount}</span></div>
-        <div class="arow-prog-track"><div class="arow-prog-fill" style="width:${pct}%;background:${fillColor}"></div></div>`;
+    // Edit / Submit Links — Content + Admin
+    if (!isGuest && (isContent || isAdmin)) {
+      actions.push(`<button class="btn btn-primary btn-sm assign-action-btn" onclick="openSubmitLinksModal('${a._id}')">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`);
     }
 
-    // ── Primary CTA ────────────────────────────────────────
-    let primaryCTA = "";
-    if (!isGuest) {
-      if ((isInstructor || isAdmin) && allocCount > 0) {
-        const lbl = evalDone > 0 ? `Evaluate (${evalDone}/${allocCount})` : "Evaluate";
-        primaryCTA = `<button class="arow-cta arow-cta-eval" onclick="openEvalListModal('${a._id}')">${lbl}</button>`;
-      } else if (isContent || (isAdmin && !allocCount)) {
-        primaryCTA = `<button class="arow-cta arow-cta-primary" onclick="openSubmitLinksModal('${a._id}')">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`;
-      } else if ((isOnGround || isAdmin) && allocCount > 0) {
-        primaryCTA = `<button class="arow-cta arow-cta-secondary" onclick="downloadAllocationCSV('${a._id}')">${_ico.download} CSV</button>`;
-      }
-    } else if (allocCount > 0) {
-      const lbl = evalDone > 0 ? `Results (${evalDone}/${allocCount})` : `View Students`;
-      primaryCTA = `<button class="arow-cta arow-cta-eval" onclick="openEvalListModal('${a._id}')">${lbl}</button>`;
-    }
-
-    // ── ⋮ Overflow menu ────────────────────────────────────
-    const menuItems = [];
-    if (!isGuest) {
-      if (isAdmin || isContent) {
-        menuItems.push(`<button class="arow-menu-item" onclick="closeAssignMenu();openSubmitLinksModal('${a._id}')">${_ico.link}${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`);
-      }
-      if (linkCount > 0) {
-        menuItems.push(`<button class="arow-menu-item" onclick="closeAssignMenu();openViewLinksModal('${a._id}')">${_ico.eye}View Links</button>`);
-      }
-      if (isOnGround || isAdmin) {
-        if (allocCount > 0) {
-          menuItems.push(`<button class="arow-menu-item" onclick="closeAssignMenu();downloadAllocationCSV('${a._id}')">${_ico.download}Download CSV</button>`);
-        } else {
-          menuItems.push(`<button class="arow-menu-item" disabled style="opacity:.38;cursor:not-allowed">${_ico.download}Download CSV</button>`);
-        }
-      }
-      if (isAdmin) {
-        if (menuItems.length) menuItems.push(`<div class="arow-menu-sep"></div>`);
-        menuItems.push(`<button class="arow-menu-item arow-menu-item-danger" onclick="closeAssignMenu();deleteAssignment('${a._id}')">${_ico.trash}Delete</button>`);
+    // Download CSV — OnGround + Admin (disabled until students are allocated)
+    if (!isGuest && (isOnGround || isAdmin)) {
+      if (allocCount > 0) {
+        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn" onclick="downloadAllocationCSV('${a._id}')" title="Download student-set allocation CSV">↓ CSV</button>`);
+      } else {
+        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-dim" disabled title="No students allocated yet">↓ CSV</button>`);
       }
     }
 
-    const moreBtn = menuItems.length
-      ? `<div style="position:relative;display:inline-block">
-          <button class="arow-more-btn" onclick="openAssignMenu('${a._id}',this)" title="More actions">${_ico.dots}</button>
-          <div class="arow-menu" id="amenu-${a._id}">${menuItems.join("")}</div>
-        </div>` : "";
+    // Evaluate — Instructor + Admin (disabled until students are allocated); guest sees View Students
+    if (!isGuest && (isInstructor || isAdmin)) {
+      if (allocCount > 0) {
+        const evalLabel = evalDone > 0 ? `Evaluate (${evalDone}/${allocCount})` : "Evaluate";
+        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval" onclick="openEvalListModal('${a._id}')">${evalLabel}</button>`);
+      } else {
+        actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval assign-action-dim" disabled title="No students allocated yet">Evaluate</button>`);
+      }
+    } else if (isGuest && allocCount > 0) {
+      const guestLabel = evalDone > 0 ? `View Eval (${evalDone}/${allocCount})` : `View Students (${allocCount})`;
+      actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-eval" onclick="openEvalListModal('${a._id}')">${guestLabel}</button>`);
+    }
 
-    return `<tr class="arow" id="arow-${a._id}">
-      <td class="arow-cell">
-        <div class="arow-pbw">${escHtml(pbw) || "—"}</div>
-        <div style="display:flex;gap:4px;align-items:center;margin-top:4px;flex-wrap:wrap">${domainPill}${mockPill}</div>
-        <div style="font-size:.7rem;color:var(--muted);margin-top:4px">${requester} · ${formatDate(a.requested_at)}</div>
-      </td>
-      <td class="arow-cell">${renderAssignSubjectsCell(a.subjects, a._id)}</td>
-      <td class="arow-cell">
-        <div class="arow-status">
-          <span class="arow-status-dot" style="background:${dotColor}"></span>
-          <span class="arow-status-text">${statusLabel}</span>
-        </div>
-        ${allocNote}${linkChip}
-      </td>
-      <td class="arow-cell">${progressCell}</td>
-      <td class="arow-cell" style="text-align:right">
-        <div style="display:inline-flex;align-items:center;gap:6px">
-          ${primaryCTA}${moreBtn}
-        </div>
-      </td>
+    // Delete — Admin only
+    if (!isGuest && isAdmin) {
+      actions.push(`<button class="btn btn-outline btn-sm assign-action-btn assign-action-del" onclick="deleteAssignment('${a._id}')">Delete</button>`);
+    }
+
+    const reqBy = `<div style="font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px" title="${escHtml(a.requested_by||'')}">${escHtml((a.requested_by||"—").split("@")[0])}</div>
+      <div style="font-size:.68rem;color:var(--muted)">${formatDate(a.requested_at)}</div>`;
+
+    return `<tr>
+      <td style="color:var(--muted);font-size:.8rem">${i + 1}</td>
+      <td style="white-space:nowrap"><span style="font-weight:600;font-size:.85rem">${pbw || "—"}</span>${domainPill}<br><span style="font-size:.7rem;color:var(--muted)">${reqBy}</span></td>
+      <td style="text-align:center">${mockBadge}</td>
+      <td>${renderAssignSubjectsCell(a.subjects, a._id)}</td>
+      <td>${statusBadge}${allocLine}</td>
+      <td>${linksCell}</td>
+      <td><div class="assign-actions-wrap">${actions.join("")}</div></td>
     </tr>
     <tr id="assign-detail-${a._id}" style="display:none;background:#f8fafc">
-      <td colspan="5" style="padding:0 14px 14px 36px">
+      <td colspan="7" style="padding:0 16px 14px 48px">
         <div class="syllabus-detail-panel">${renderAssignSubjectsDetail(a.subjects)}</div>
       </td>
     </tr>`;
