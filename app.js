@@ -1,7 +1,7 @@
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   collection, addDoc, getDocs, deleteDoc,
-  doc, updateDoc, query, orderBy, where, serverTimestamp, writeBatch, arrayUnion
+  doc, updateDoc, query, orderBy, where, serverTimestamp, writeBatch, arrayUnion, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -67,7 +67,7 @@ onAuthStateChanged(auth, async user => {
     document.body.classList.remove("guest-mode");
     const banner = document.getElementById("guest-banner");
     if (banner) banner.style.display = "none";
-    const snap = await getDocs(query(collection(db, "team_members"), where("email", "==", user.email)));
+    const snap = await getDocs(query(collection(db, "team_members"), where("email", "==", user.email), limit(1)));
     let displayLabel = user.email;
     if (!snap.empty) {
       const m = snap.docs[0].data();
@@ -114,9 +114,20 @@ window.handleLogin = async () => {
   err.style.display = "none";
   btn.disabled  = true;
   btn.innerHTML = '<span class="spinner"></span> Signing in...';
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    btn.disabled    = false;
+    btn.textContent = "Sign In";
+    err.style.display = "block";
+    err.textContent   = "Login is taking too long. Check your internet connection and try again.";
+  }, 30000);
   try {
     await signInWithEmailAndPassword(auth, email, pass);
+    clearTimeout(timeout);
   } catch (e) {
+    clearTimeout(timeout);
+    if (timedOut) return;
     err.style.display = "block";
     err.textContent   = friendlyAuthError(e.code);
     btn.disabled    = false;
@@ -2667,7 +2678,7 @@ async function createNotification(type, status, title, message) {
 
 async function loadNotifCount() {
   try {
-    const snap = await getDocs(query(collection(db, "notifications"), orderBy("createdAt", "desc")));
+    const snap = await getDocs(query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(100)));
     const all  = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
     _allNotifs = currentUserTeam === "admin"
       ? all
