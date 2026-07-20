@@ -2,3 +2,4 @@
 firebase-config.js
 server/node_modules
 server/topin-session.json
+server/topin-tokens.json

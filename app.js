@@ -2346,24 +2346,9 @@ window.confirmPublishAssessment = async (id, target = "main") => {
   closeModal("publish-modal");
   const c = allConfigs.find(x => x._id === id);
   if (!c) return;
-
-  const isMock = target === "mock";
-  const isBoth = target === "both";
-
-  if ((target === "main" || isBoth) && !c.config_link)  { toast("Cannot publish — Main config link is missing", "error"); return; }
-  if ((isMock || isBoth) && !c.mock_config_link)         { toast("Cannot publish — Mock config link is missing", "error"); return; }
-
-  // Always publish via Topin automation server
-  const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
-  try {
-    const h = await fetch(`${serverUrl}/api/health`, { signal: AbortSignal.timeout(2000) });
-    if (!h.ok) throw new Error("unhealthy");
-  } catch {
-    toast("Topin automation server is not running. Open server/start.ps1 to start it, then try again.", "error");
-    return;
-  }
-
-  await publishToTopin(id, target);
+  if (!c.config_link && !c.mock_config_link) { toast("Cannot publish — no config links found", "error"); return; }
+  // Open the Topin publish setup modal (title, tags, PINs, target picker)
+  await openTopinPublishSetup(id, target);
 };
 
 window.markInvitesSent = async (id) => {
@@ -2405,15 +2390,17 @@ window.switchConfigInputTab = (tab, btn) => {
 };
 
 window.addConfigManually = async () => {
-  const phase    = (document.getElementById("cf-phase")?.value  || "").trim();
-  const domain   = (document.getElementById("cf-domain")?.value || "").trim();
-  const batchN   = (document.getElementById("cf-batch")?.value  || "").trim();
-  const batch    = batchN ? `B${batchN}` : "";
-  const weekN    = (document.getElementById("cf-week")?.value   || "").trim();
-  const week     = weekN  ? `W${weekN}`  : "";
-  const adate    = document.getElementById("cf-adate").value;
-  const link     = document.getElementById("cf-link").value.trim();
-  const mockLink = document.getElementById("cf-mock-link").value.trim();
+  const phase      = (document.getElementById("cf-phase")?.value      || "").trim();
+  const domain     = (document.getElementById("cf-domain")?.value     || "").trim();
+  const p4SubType  = (document.getElementById("cf-p4-subtype")?.value || "weekly").trim();
+  const assessMode = (document.getElementById("cf-mode")?.value       || "SEB_BROWSER").trim();
+  const batchN     = (document.getElementById("cf-batch")?.value  || "").trim();
+  const batch      = batchN ? `B${batchN}` : "";
+  const weekN      = (document.getElementById("cf-week")?.value   || "").trim();
+  const week       = weekN  ? `W${weekN}`  : "";
+  const adate      = document.getElementById("cf-adate").value;
+  const link       = document.getElementById("cf-link").value.trim();
+  const mockLink   = document.getElementById("cf-mock-link").value.trim();
   if (!phase || !week) { toast("Phase and Week are required", "error"); return; }
   if (!link && !mockLink) { toast("Please enter at least one config link (Main or Mock)", "error"); return; }
   try {
@@ -2424,16 +2411,20 @@ window.addConfigManually = async () => {
       where("week",  "==", week)
     ));
     if (!snap.empty) {
-      const upd = { status: "submitted", assessment_date: adate || snap.docs[0].data().assessment_date || "", submittedBy: currentUserEmail, submittedAt: serverTimestamp() };
+      const upd = { status: "submitted", assessment_date: adate || snap.docs[0].data().assessment_date || "", assessment_mode: assessMode, submittedBy: currentUserEmail, submittedAt: serverTimestamp() };
       if (link)     upd.config_link      = link;
       if (mockLink) upd.mock_config_link = mockLink;
+      if (domain)   upd.domain           = domain;
+      if (phase === "P4") upd.p4_sub_type = p4SubType;
       await updateDoc(doc(db, "configs", snap.docs[0].id), upd);
       toast("Config updated", "success");
     } else {
       await addDoc(collection(db, "configs"), {
         phase, batch, week,
         ...(domain ? { domain } : {}),
+        ...(phase === "P4" ? { p4_sub_type: p4SubType } : {}),
         assessment_date: adate || "",
+        assessment_mode: assessMode,
         config_link: link, mock_config_link: mockLink,
         status: "submitted",
         submittedBy: currentUserEmail, submittedAt: serverTimestamp(),
@@ -2447,8 +2438,10 @@ window.addConfigManually = async () => {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
-    const cfDomRow = document.getElementById("cf-domain-row");
+    const cfDomRow   = document.getElementById("cf-domain-row");
+    const cfP4Row    = document.getElementById("cf-p4-subtype-row");
     if (cfDomRow) cfDomRow.style.display = "none";
+    if (cfP4Row)  cfP4Row.style.display  = "none";
     loadConfigs();
   } catch (e) {
     toast("Error: " + e.message, "error");
@@ -2584,8 +2577,11 @@ function setPbwInput(id, storedVal) {
 window.onPhaseSelectChange = (phaseId, domainRowId) => {
   const phase = document.getElementById(phaseId)?.value || "";
   const phN   = parseInt(phase.replace(/\D/g, "")) || 0;
-  const row   = document.getElementById(domainRowId);
-  if (row) row.style.display = (phN === 3 || phN === 4) ? "" : "none";
+  const domRow = document.getElementById(domainRowId);
+  if (domRow) domRow.style.display = (phN === 3 || phN === 4) ? "" : "none";
+  // Show P4 sub-type selector when phase is 4 (config add form)
+  const p4Row = document.getElementById("cf-p4-subtype-row");
+  if (p4Row) p4Row.style.display = phN === 4 ? "" : "none";
 };
 
 function pbwCell(phase, batch, week) {
@@ -4827,15 +4823,7 @@ window.deleteAssignment = async (id) => {
 let automationCreds = {};
 let sseSource = null;
 
-window.openCredentialsModal = async () => {
-  try {
-    const snap = await getDocs(query(collection(db, "settings"), where("key", "==", "automation_creds")));
-    if (!snap.empty) {
-      automationCreds = snap.docs[0].data().value || {};
-      document.getElementById("creds-invite-endpoint").value = automationCreds.inviteEndpoint || "";
-      document.getElementById("creds-invite-key").value      = automationCreds.inviteKey      || "";
-    }
-  } catch {}
+window.openCredentialsModal = () => {
   document.getElementById("creds-server-url").value = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
   document.getElementById("creds-modal").classList.add("open");
 };
@@ -4848,22 +4836,10 @@ window.switchCredsTab = (tab, btn) => {
 };
 
 window.saveCredentials = async () => {
-  const inviteEndpoint = document.getElementById("creds-invite-endpoint").value.trim();
-  const inviteKey      = document.getElementById("creds-invite-key").value.trim();
-  const serverUrl      = document.getElementById("creds-server-url").value.trim();
-  try {
-    const snap = await getDocs(query(collection(db, "settings"), where("key", "==", "automation_creds")));
-    const val  = { inviteEndpoint, inviteKey };
-    if (!snap.empty) {
-      await updateDoc(doc(db, "settings", snap.docs[0].id), { value: val, updatedAt: serverTimestamp(), updatedBy: currentUserEmail });
-    } else {
-      await addDoc(collection(db, "settings"), { key: "automation_creds", value: val, updatedAt: serverTimestamp(), updatedBy: currentUserEmail });
-    }
-    automationCreds = val;
-  } catch (e) { toast("Error saving credentials: " + e.message, "error"); return; }
+  const serverUrl = document.getElementById("creds-server-url").value.trim();
   if (serverUrl) localStorage.setItem("topinServerUrl", serverUrl);
   closeModal("creds-modal");
-  toast("Credentials saved", "success");
+  toast("Server URL saved", "success");
 };
 
 window.checkServerHealth = async () => {
@@ -4973,83 +4949,194 @@ window.cancelAutomation = async () => {
   closeModal("progress-modal");
 };
 
-// ── Publish to Topin via local automation server ──────────────
-window.publishToTopin = async (configId, preselectedTarget = null) => {
+// ── Client-side tag + PIN generation (mirrors server/topin-client.js) ─
+const PIN_CHARS = "ACDEFGHJKLMNPQRTUVWXYZ23456789";
+function genExitPin(len = 6) {
+  let pin = "";
+  for (let i = 0; i < len; i++) pin += PIN_CHARS[Math.floor(Math.random() * PIN_CHARS.length)];
+  return pin;
+}
+function genExamTag(phase, batch, week, isMock, domain, p4SubType) {
+  const p   = String(phase  || "").replace(/^P/i,"").replace(/\D/g,"");
+  const b   = "B" + String(batch  || "").replace(/^B/i,"").replace(/\D/g,"");
+  const w   = "W" + String(week   || "").replace(/^W/i,"").replace(/\D/g,"");
+  const dRaw = String(domain || "").toUpperCase();
+  const d   = dRaw.includes("JAVA") ? "JAVA" : "PYTHON";
+  const sub = (p4SubType || "weekly").toLowerCase();
+  if (p === "1") return isMock ? `IO26_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_${b}_${w}` : `IO26_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_${b}_${w}`;
+  if (p === "2") return isMock ? `IO26BM_INTENSIVE_OFFLINE_MOCK_NXTMOCK_${b}_${w}` : `IO26BM_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${b}_${w}`;
+  if (p === "3") {
+    if (d === "JAVA") return isMock ? `IO26_P3_INTENSIVE_OFFLINE_MOCK_INTERVIEW_JAVA_${b}_${w}` : `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_JAVA_${b}_${w}`;
+    return isMock ? `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_PYTHON_${b}_${w}` : `IO26_P3_INTENSIVE_OFFLINE_MAIN_INTERVIEW_PYTHON_${b}_${w}`;
+  }
+  if (p === "4") {
+    if (sub === "nxtmock")     return `IO26BM_P4_INTENSIVE_OFFLINE_MOCK_NXTMOCK_${d}_${b}`;
+    if (sub === "nxtmock_tr1") return `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_NXTMOCK_${d}_TR1_${b}`;
+    if (sub === "nxtmock_tr2") return `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_NXTMOCK_${d}_TR2_${b}`;
+    return isMock ? `IO26BM_P4_INTENSIVE_OFFLINE_MOCK_ASSESSMENT_${d}_${b}_${w}` : `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${d}_${b}_${w}`;
+  }
+  return `IOE_P${p}_${isMock ? "MOCK" : "MAIN"}_${b}_${w}`;
+}
+
+// ── Topin Publish Setup Modal ─────────────────────────────────
+let _tpsConfigId = null;
+let _tpsConfig   = null;
+
+window.openTopinPublishSetup = async (configId, suggestedTarget = "main") => {
   const c = allConfigs.find(x => x._id === configId);
   if (!c) return;
   const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
-  try {
-    await fetch(`${serverUrl}/api/health`, { signal: AbortSignal.timeout(3000) });
-  } catch {
-    toast("Local automation server not reachable. Start it via server/start.ps1 and set the URL in Credentials.", "error");
-    return;
-  }
 
-  const hasMock = c.mock_assessment === "required";
+  // Check server health
+  try { await fetch(`${serverUrl}/api/health`, { signal: AbortSignal.timeout(3000) }); }
+  catch { toast("Local automation server not reachable. Start it via server/start.ps1 and set the URL in Credentials.", "error"); return; }
 
-  // Build target options based on config
-  const targetOptions = [];
+  _tpsConfigId = configId;
+  _tpsConfig   = c;
+
+  // Meta info
+  const meta = [c.phase, c.batch, c.week, c.domain].filter(Boolean).join(" / ");
+  document.getElementById("tps-meta").textContent = meta;
+
+  // Phase 4 sub-type row
+  const phaseNum = parseInt((c.phase || "").replace(/\D/g,"")) || 0;
+  const p4Row    = document.getElementById("tps-p4-row");
+  p4Row.style.display = phaseNum === 4 ? "" : "none";
+  if (c.p4_sub_type) document.getElementById("tps-p4-subtype").value = c.p4_sub_type;
+
+  // Mock section visibility
+  const hasMock = !!(c.mock_config_link);
+  document.getElementById("tps-mock-section").style.display = hasMock ? "" : "none";
+
+  // Target options (pre-select the suggested target)
+  const targetEl = document.getElementById("tps-target");
+  targetEl.innerHTML = "";
   if (hasMock) {
-    targetOptions.push({ value: "mock",  label: "Mock Assessment only",  desc: `Date: ${c.mock_assessment_date || "not set"} · ${c.mock_assessment_start_time || "?"} – ${c.mock_assessment_end_time || "?"}` });
-    targetOptions.push({ value: "main",  label: "Main Assessment only",  desc: `Date: ${c.assessment_date || "not set"} · ${c.assessment_start_time || "?"} – ${c.assessment_end_time || "?"}` });
-    targetOptions.push({ value: "both",  label: "Both (Mock first, then Main)", desc: "Publishes mock assessment, then immediately publishes main assessment" });
+    targetEl.innerHTML = `<option value="main">Main Assessment only</option><option value="mock">Mock Assessment only</option><option value="both">Both — Mock first, then Main</option>`;
   } else {
-    targetOptions.push({ value: "main",  label: "Main Assessment",       desc: `Date: ${c.assessment_date || "not set"} · ${c.assessment_start_time || "?"} – ${c.assessment_end_time || "?"}` });
+    targetEl.innerHTML = `<option value="main">Main Assessment</option>`;
+  }
+  if (suggestedTarget && targetEl.querySelector(`option[value="${suggestedTarget}"]`)) {
+    targetEl.value = suggestedTarget;
   }
 
-  const startAutomation = async (target) => {
-    connectSSE(serverUrl, async (doneData) => {
-      // On SSE done: update Firestore
-      try {
-        const updates = { status: "published", published_at: serverTimestamp(), published_by: currentUserEmail, publish_target: target, invites_sent: false };
-        if (doneData.assessmentLink) updates.topin_assessment_link = doneData.assessmentLink;
-        if (doneData.assessmentId)   updates.topin_assessment_id   = doneData.assessmentId;
-        await updateDoc(doc(db, "configs", configId), updates);
-        const idx = allConfigs.findIndex(x => x._id === configId);
-        if (idx >= 0) Object.assign(allConfigs[idx], { ...updates, published_at: new Date() });
-        renderAssessmentsTable();
-      } catch (e) { logProgress("error", "Firestore update failed: " + e.message); }
-    });
+  // Default title suggestion
+  const titleParts = [c.week, c.phase ? "— " + c.phase : "", c.batch || ""].filter(Boolean).join(" ");
+  document.getElementById("tps-title").value = titleParts;
 
-    const mobile = document.getElementById("progress-mobile-input")?.value.trim() || localStorage.getItem("topinMobile") || "";
-    if (!mobile || mobile.length < 10) {
-      setCredsStatus("Enter your 10-digit Topin mobile number and click Get OTP first", "error");
-      return;
+  // Generate tags + PINs
+  updateTpsTagPreviews();
+  document.getElementById("tps-main-pin").value = genExitPin();
+  document.getElementById("tps-mock-pin").value = genExitPin();
+
+  // Check token status
+  const statusEl = document.getElementById("tps-token-status");
+  statusEl.style.background = "#f8fafc"; statusEl.style.borderColor = "#e2e8f0"; statusEl.style.color = "var(--muted)";
+  statusEl.textContent = "Checking Topin connection...";
+  try {
+    const tok = await fetch(`${serverUrl}/api/publish/token-status`, { signal: AbortSignal.timeout(4000) });
+    const td  = await tok.json();
+    if (td.hasTopin) {
+      const mins = Math.round(td.expiresIn / 60);
+      statusEl.style.background = "#f0fdf4"; statusEl.style.borderColor = "#bbf7d0"; statusEl.style.color = "#15803d";
+      statusEl.textContent = `✓ Topin token valid — no OTP needed (expires in ~${mins} min)`;
+    } else if (td.hasIB || td.hasRefresh) {
+      statusEl.style.background = "#fffbeb"; statusEl.style.borderColor = "#fde68a"; statusEl.style.color = "#92400e";
+      statusEl.textContent = "Token will be auto-refreshed before publishing — no OTP needed";
+    } else {
+      statusEl.style.background = "#fef2f2"; statusEl.style.borderColor = "#fca5a5"; statusEl.style.color = "#dc2626";
+      statusEl.textContent = "OTP login required — you'll be prompted after clicking Start Publishing";
     }
-    localStorage.setItem("topinMobile", mobile);
+  } catch {
+    statusEl.textContent = "Could not check token status";
+  }
 
-    const proceed = async () => {
-      if (target === "mock" || target === "both") await runTopinPublish(serverUrl, c, configId, "mock");
-      if (target === "main" || target === "both") { if (target === "both") await new Promise(r => setTimeout(r, 1500)); await runTopinPublish(serverUrl, c, configId, "main"); }
-    };
+  document.getElementById("topin-publish-setup-modal").classList.add("open");
+};
 
+window.updateTpsTagPreviews = () => {
+  if (!_tpsConfig) return;
+  const c      = _tpsConfig;
+  const sub    = document.getElementById("tps-p4-subtype")?.value || "weekly";
+  const mainTag = genExamTag(c.phase, c.batch, c.week, false, c.domain, sub);
+  const mockTag = genExamTag(c.phase, c.batch, c.week, true,  c.domain, sub);
+  document.getElementById("tps-main-tag").value = mainTag;
+  document.getElementById("tps-mock-tag").value = mockTag;
+};
+
+window.regenMainPin = () => { document.getElementById("tps-main-pin").value = genExitPin(); };
+window.regenMockPin = () => { document.getElementById("tps-mock-pin").value = genExitPin(); };
+
+window.confirmTopinPublish = async () => {
+  const title = document.getElementById("tps-title").value.trim();
+  if (!title) { toast("Assessment title is required", "error"); return; }
+
+  const target    = document.getElementById("tps-target").value;
+  const p4SubType = document.getElementById("tps-p4-subtype")?.value || "weekly";
+  const mainTag   = document.getElementById("tps-main-tag").value;
+  const mockTag   = document.getElementById("tps-mock-tag").value;
+  const mainPin   = document.getElementById("tps-main-pin").value;
+  const mockPin   = document.getElementById("tps-mock-pin").value;
+
+  closeModal("topin-publish-setup-modal");
+
+  // Store publish params for use in the run function
+  window._tpsPublishParams = { title, target, p4SubType, mainTag, mockTag, mainPin, mockPin };
+  await publishToTopin(_tpsConfigId, target);
+};
+
+// ── Publish to Topin via local automation server ──────────────
+window.publishToTopin = async (configId, target = "main") => {
+  const c = allConfigs.find(x => x._id === configId);
+  if (!c) return;
+  const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  const params    = window._tpsPublishParams || {};
+
+  const label = target === "both" ? "Mock + Main" : target === "mock" ? "Mock" : "Main";
+  openProgressModal(`Publishing ${label} Assessment to Topin`);
+
+  const onDone = async (doneData) => {
     try {
-      const startResp = await fetch(`${serverUrl}/api/publish/start`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile })
-      });
-      const startData = await startResp.json();
-      if (startData.status === "already_authenticated") {
-        setCredsStatus("Already logged in — starting automation...", "success");
-        await proceed();
-      } else if (startData.status === "otp_sent") {
-        setCredsStatus(`OTP sent to ${mobile.replace(/\d(?=\d{4})/g, "*")} — enter it above and click Verify`, "info");
-        document.getElementById("progress-otp-input").value = "";
-        document.getElementById("progress-otp-input").focus();
-        window._otpProceed = proceed;
-      } else { logProgress("error", startData.error || "Failed to start login"); finishProgress(false, "Login failed"); }
-    } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
+      const isMock   = doneData.isMock;
+      const updates  = { status: "published", published_at: serverTimestamp(), published_by: currentUserEmail, invites_sent: false };
+      if (isMock) {
+        if (doneData.assessmentLink)   updates.mock_topin_assessment_link   = doneData.assessmentLink;
+        if (doneData.publishedAssessId) updates.mock_topin_published_assess_id = doneData.publishedAssessId;
+        if (doneData.exitPin)          updates.mock_exit_pin                = doneData.exitPin;
+        if (doneData.uniqueExamId)     updates.mock_unique_exam_id          = doneData.uniqueExamId;
+      } else {
+        if (doneData.assessmentLink)   updates.topin_assessment_link        = doneData.assessmentLink;
+        if (doneData.publishedAssessId) updates.topin_published_assess_id   = doneData.publishedAssessId;
+        if (doneData.exitPin)          updates.exit_pin                     = doneData.exitPin;
+        if (doneData.uniqueExamId)     updates.unique_exam_id               = doneData.uniqueExamId;
+      }
+      await updateDoc(doc(db, "configs", configId), updates);
+      const idx = allConfigs.findIndex(x => x._id === configId);
+      if (idx >= 0) Object.assign(allConfigs[idx], { ...updates, published_at: new Date() });
+      renderAssessmentsTable();
+    } catch (e) { logProgress("error", "Firestore update failed: " + e.message); }
   };
 
-  if (preselectedTarget) {
-    openProgressModal("Publishing to Topin");
-    await startAutomation(preselectedTarget);
-  } else {
-    openProgressModal("Publish to Topin", {
-      showTargetPicker: true,
-      targetOptions,
-      onTarget: async (target) => startAutomation(target)
-    });
+  connectSSE(serverUrl, onDone);
+
+  const runIt = async () => {
+    if (target === "mock" || target === "both") {
+      const n = await runTopinPublish(serverUrl, c, "mock", params);
+      if (n) return true; // needs OTP — stop here, retry from beginning after auth
+    }
+    if (target === "main" || target === "both") {
+      if (target === "both") await new Promise(r => setTimeout(r, 2000));
+      const n = await runTopinPublish(serverUrl, c, "main", params);
+      if (n) return true;
+    }
+    return false;
+  };
+
+  // Try to run directly — server returns needs_otp if all refresh levels fail
+  const needsOtp = await runIt();
+  if (needsOtp) {
+    setCredsStatus("Enter your Topin mobile number and click Get OTP to log in", "info");
+    window._otpProceed = runIt;
   }
 };
 
@@ -5110,41 +5197,50 @@ window.submitInlineOTP = async () => {
   finally { btn.textContent = "Verify"; btn.disabled = false; }
 };
 
-async function runTopinPublish(serverUrl, c, configId, target = "main") {
-  const isMock = target === "mock";
-  const label  = isMock ? "Mock Assessment" : "Main Assessment";
-  logProgress("info", `Starting publish: ${label}...`);
+// Returns true if needs_otp, false/undefined otherwise
+async function runTopinPublish(serverUrl, c, target = "main", params = {}) {
+  const isMock      = target === "mock";
+  const label       = isMock ? "Mock Assessment" : "Main Assessment";
+  const configUrl   = isMock ? (c.mock_config_link || "") : (c.config_link || "");
+  const title       = isMock ? `[MOCK] ${params.title || ""}` : (params.title || "");
+  const uniqueExamId = isMock ? (params.mockTag || "") : (params.mainTag || "");
+  const exitPin     = isMock ? (params.mockPin || "") : (params.mainPin || "");
+  const isSEB       = (c.assessment_mode || "SEB_BROWSER") === "SEB_BROWSER";
+  const assessDate  = isMock ? (c.mock_assessment_date || c.assessment_date || "") : (c.assessment_date || "");
+  const startTime   = isMock ? (c.mock_assessment_start_time || c.assessment_start_time || "") : (c.assessment_start_time || "");
+  const endTime     = isMock ? (c.mock_assessment_end_time   || c.assessment_end_time   || "") : (c.assessment_end_time   || "");
+
+  if (!configUrl) { logProgress("error", `No config link for ${label}`); finishProgress(false, `Missing config link for ${label}`); return false; }
+  if (!assessDate || !startTime || !endTime) { logProgress("error", `Missing date/time for ${label}`); finishProgress(false, `Set assessment date and times in the config first`); return false; }
+
+  logProgress("info", `Submitting ${label} to Topin API...`);
   try {
     const resp = await fetch(`${serverUrl}/api/publish/run`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        assessmentName: `${isMock ? "[MOCK] " : ""}${c.week}${c.phase ? " — " + c.phase : ""}${c.batch ? " " + c.batch : ""}`,
-        assessmentDate: isMock ? (c.mock_assessment_date        || "") : (c.assessment_date        || ""),
-        startTime:      isMock ? (c.mock_assessment_start_time  || "") : (c.assessment_start_time  || ""),
-        endTime:        isMock ? (c.mock_assessment_end_time     || "") : (c.assessment_end_time     || ""),
-        uniqueExamId:   `${configId}${isMock ? "_mock" : ""}`,
-        accessType:     "Public"
-      })
+      body: JSON.stringify({ configUrl, title, assessmentDate: assessDate, startTime, endTime, exitPin, uniqueExamId, isSEB, isMock })
     });
     const data = await resp.json();
-    if (data.status !== "started") { logProgress("error", data.error || "Start failed"); finishProgress(false, `${label} publish failed to start`); }
-  } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); }
+    if (data.status === "started") return false;
+    if (data.status === "needs_otp") {
+      logProgress("info", "Topin token expired — OTP login required. Enter mobile number below and click Get OTP.");
+      return true; // caller shows OTP form, re-runs after verify
+    }
+    logProgress("error", data.error || "Unexpected response from server");
+    finishProgress(false, `${label} failed to start`);
+    return false;
+  } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); return false; }
 }
 
 // ── Invite Students via /api/invite Vercel function ───────────
 window.inviteStudents = async (configId) => {
   const c = allConfigs.find(x => x._id === configId);
   if (!c) return;
-  if (!automationCreds.inviteEndpoint) {
-    try {
-      const snap = await getDocs(query(collection(db, "settings"), where("key", "==", "automation_creds")));
-      if (!snap.empty) automationCreds = snap.docs[0].data().value || {};
-    } catch {}
-  }
-  if (!automationCreds.inviteEndpoint || !automationCreds.inviteKey) {
-    toast("Invite API credentials not configured. Open Credentials & Automation and fill in Invite API details.", "error");
-    return;
-  }
+
+  // Use stored published assessment ID, falling back to UUID in config URL
+  const publishedAssessId = c.topin_published_assess_id || "";
+  const uuidFromUrl       = (c.config_link || "").match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] || "";
+  const assessmentId      = publishedAssessId || uuidFromUrl;
+  if (!assessmentId) { toast("No assessment ID found. Publish to Topin first.", "error"); return; }
 
   openProgressModal("Inviting Students");
   logProgress("info", `Loading students for ${[c.phase, c.batch, c.week].filter(Boolean).join(" / ")}...`);
@@ -5159,15 +5255,17 @@ window.inviteStudents = async (configId) => {
   if (!candidates.length) { logProgress("error", "No students found for this phase/batch"); finishProgress(false, "No students to invite"); return; }
   logProgress("info", `Found ${candidates.length} students. Sending invites...`);
 
-  const uuidMatch  = (c.config_link || "").match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-  const assessmentId = uuidMatch ? uuidMatch[0] : c.config_link;
-
   try {
     const resp = await fetch("/api/invite", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiEndpoint: automationCreds.inviteEndpoint, apiToken: automationCreds.inviteKey, candidates, assessmentId })
+      body: JSON.stringify({ candidates, assessmentId })
     });
-    if (!resp.ok) { const err = await resp.json().catch(() => ({})); logProgress("error", err.error || resp.status); finishProgress(false, "Invite API error"); return; }
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      logProgress("error", err.error || `HTTP ${resp.status}`);
+      finishProgress(false, "Invite API error — check that TOPIN_INVITE_API_KEY is set in Vercel");
+      return;
+    }
     const result = await resp.json();
     logProgress("info",    `Total: ${result.total}`);
     logProgress("success", `Sent:  ${result.sent} invites`);
@@ -5180,7 +5278,7 @@ window.inviteStudents = async (configId) => {
       renderAssessmentsTable();
       finishProgress(true, `✓ ${result.sent} invites sent successfully!`);
     } else {
-      finishProgress(false, "No invites were sent. Check credentials and try again.");
+      finishProgress(false, "No invites were sent. Check TOPIN_INVITE_API_KEY in Vercel env vars.");
     }
   } catch (e) { logProgress("error", e.message); finishProgress(false, "Network error"); }
 };

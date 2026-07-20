@@ -1,12 +1,11 @@
+"use strict";
 const express      = require("express");
 const cors         = require("cors");
 const { chromium } = require("playwright");
-const fs           = require("fs");
-const path         = require("path");
+const topinClient  = require("./topin-client");
 
-const app          = express();
-const PORT         = process.env.PORT || 3001;
-const SESSION_FILE = path.join(__dirname, "topin-session.json");
+const app  = express();
+const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: "*" }));
 app.use(express.json());
@@ -17,11 +16,6 @@ let jobRunning      = false;
 let cancelRequested = false;
 let browser         = null;
 let pendingAuthCtx  = null;
-let activeCtx       = null;
-// Keep the exact page that was alive after OTP — preserves React in-memory auth state.
-// Direct pg.goto('/create-assessment') from a NEW page redirects to login because
-// Topin's auth token lives in the running React app's memory, not just cookies/localStorage.
-let activePg        = null;
 
 function broadcast(type, message, extra = {}) {
   const payload = JSON.stringify({ type, message, ts: new Date().toISOString(), ...extra });
@@ -31,6 +25,18 @@ function broadcast(type, message, extra = {}) {
 
 // ── Health ────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => res.json({ status: "ok", ts: Date.now() }));
+
+// ── Token status ──────────────────────────────────────────────
+app.get("/api/publish/token-status", (_req, res) => {
+  const t   = topinClient.loadTokens();
+  const now = Date.now();
+  const BUF = 5 * 60 * 1000;
+  const hasTopin = !!(t.topin_access_token && (t.topin_expires_at || 0) - now > BUF);
+  const hasIB    = !!(t.ib_access_token    && (t.ib_expires_at    || 0) - now > BUF);
+  const hasRefresh = !!(t.ib_refresh_token);
+  const expiresIn  = hasTopin ? Math.round(((t.topin_expires_at || 0) - now) / 1000) : 0;
+  res.json({ hasValidToken: hasTopin || hasIB || hasRefresh, hasTopin, hasIB, hasRefresh, expiresIn });
+});
 
 // ── SSE stream ────────────────────────────────────────────────
 app.get("/api/publish/progress", (req, res) => {
@@ -43,84 +49,67 @@ app.get("/api/publish/progress", (req, res) => {
   req.on("close", () => sseClients.delete(res));
 });
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Browser helper ────────────────────────────────────────────
 async function ensureBrowser() {
   if (!browser || !browser.isConnected()) {
-    // Set HEADLESS=false in env to watch the browser during debugging
     browser = await chromium.launch({ headless: process.env.HEADLESS !== "false" });
   }
   return browser;
 }
 
-function onLoginPage(pg) {
-  const url = pg.url();
-  return url.includes("accounts.ccbp.in") || url.includes("/login?") || url === "about:blank";
+// ── Set up network interception to capture IB + Topin tokens ──
+function setupTokenCapture(context) {
+  context.on("response", async (response) => {
+    try {
+      const url = response.url();
+      // IB OTP verify response → contains IB access_token
+      if (url.includes("login_otp/verify/v1") || url.includes("mobile/otp/verify")) {
+        const data = await response.json().catch(() => null);
+        if (data?.access_token) {
+          topinClient.saveTokens({
+            ib_access_token:  data.access_token,
+            ib_refresh_token: data.refresh_token || "",
+            ib_expires_at:    Date.now() + (data.expires_in || 3600) * 1000,
+          });
+          broadcast("info", "[AUTH] IB access token captured.");
+        }
+      }
+      // Topin auth_code exchange → contains Topin access_token
+      if (url.includes("auth_code/v2")) {
+        const data = await response.json().catch(() => null);
+        if (data?.access_token) {
+          topinClient.saveTokens({
+            topin_access_token:  data.access_token,
+            topin_refresh_token: data.refresh_token || "",
+            topin_expires_at:    Date.now() + parseFloat(data.expires_in || 3600) * 1000,
+          });
+          broadcast("info", "[AUTH] Topin access token captured — future publishes skip OTP.");
+        }
+      }
+    } catch { /* non-fatal */ }
+  });
 }
 
-// Creates a fresh context from session file, loads home, sets activeCtx/activePg.
-// Returns the page if session is valid, null if not.
-async function restoreSessionFromFile() {
-  if (!fs.existsSync(SESSION_FILE)) return null;
-  try {
-    const b  = await ensureBrowser();
-    const c  = await b.newContext({ storageState: SESSION_FILE });
-    const pg = await c.newPage();
-    await pg.goto("https://config.topin.tech/home", { waitUntil: "networkidle", timeout: 25000 });
-    if (onLoginPage(pg)) { await c.close(); return null; }
-    activeCtx = c;
-    activePg  = pg;
-    return pg;
-  } catch {
-    return null;
-  }
-}
-
-// ── Step 1: Start login ───────────────────────────────────────
+// ── Step 1: Start OTP login ───────────────────────────────────
 app.post("/api/publish/start", async (req, res) => {
   const { mobile } = req.body || {};
   if (!mobile) return res.status(400).json({ error: "mobile number required" });
-  if (jobRunning) return res.status(409).json({ error: "A job is already running" });
 
   try {
-    // Check live page first (fastest)
-    if (activePg && !activePg.isClosed()) {
-      try {
-        await activePg.goto("https://config.topin.tech/home", { waitUntil: "domcontentloaded", timeout: 12000 });
-        if (!onLoginPage(activePg)) {
-          broadcast("success", "Existing session valid — skipping OTP");
-          return res.json({ status: "already_authenticated" });
-        }
-      } catch {}
-    }
-
-    // Dead session — clean up
-    activePg = null;
-    if (activeCtx) { await activeCtx.close().catch(() => {}); activeCtx = null; }
-
-    // Try session file
-    broadcast("info", "Checking saved session...");
-    const savedPg = await restoreSessionFromFile();
-    if (savedPg) {
-      broadcast("success", "Saved session valid — skipping OTP");
-      return res.json({ status: "already_authenticated" });
-    }
-
-    // Fresh login flow
     broadcast("info", "Opening Topin login page...");
-    const b  = await ensureBrowser();
+    const b = await ensureBrowser();
+    if (pendingAuthCtx) { await pendingAuthCtx.close().catch(() => {}); pendingAuthCtx = null; }
     pendingAuthCtx = await b.newContext();
+    setupTokenCapture(pendingAuthCtx);
     const pg = await pendingAuthCtx.newPage();
 
-    // config.topin.tech does a JS redirect → accounts.ccbp.in/login
-    // Must wait for networkidle so the redirect fully completes before querying DOM
     await pg.goto("https://config.topin.tech/", { waitUntil: "domcontentloaded", timeout: 30000 });
     if (!pg.url().includes("ccbp.in")) {
-      await pg.waitForURL(url => url.href.includes("ccbp.in") || url.href.includes("login"), { timeout: 15000 }).catch(() => {});
+      await pg.waitForURL(u => u.href.includes("ccbp.in") || u.href.includes("login"), { timeout: 15000 }).catch(() => {});
     }
     await pg.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
-    broadcast("info", `Login page: ${pg.url().split("?")[0]}`);
+    broadcast("info", `Login page ready: ${pg.url().split("?")[0]}`);
 
-    // Mobile input — accounts.ccbp.in may use different placeholder than config.topin.tech
     const mobileInput = pg.locator([
       'input[placeholder="Enter Number"]',
       'input[placeholder*="mobile" i]',
@@ -128,8 +117,6 @@ app.post("/api/publish/start", async (req, res) => {
       'input[placeholder*="number" i]',
       'input[type="tel"]',
       'input[name*="mobile" i]',
-      'input[name*="phone" i]',
-      'input[id*="mobile" i]',
     ].join(", ")).first();
     await mobileInput.waitFor({ state: "visible", timeout: 15000 });
     await mobileInput.fill(mobile);
@@ -138,12 +125,11 @@ app.post("/api/publish/start", async (req, res) => {
       'button:has-text("GET OTP")',
       'button:has-text("Get OTP")',
       'button:has-text("Send OTP")',
-      'button:has-text("Request OTP")',
       'button:has-text("Continue")',
       'button[type="submit"]',
     ].join(", ")).first().click({ timeout: 10000 });
 
-    broadcast("info", `OTP sent to ${mobile.replace(/\d(?=\d{4})/g, "*")} — enter it in the portal`);
+    broadcast("info", `OTP sent to ${mobile.replace(/\d(?=\d{4})/g, "*")}`);
     res.json({ status: "otp_sent" });
   } catch (e) {
     broadcast("error", `Login start failed: ${e.message}`);
@@ -151,56 +137,40 @@ app.post("/api/publish/start", async (req, res) => {
   }
 });
 
-// ── Step 2: Verify OTP ────────────────────────────────────────
+// ── Step 2: Verify OTP (token capture happens via setupTokenCapture) ──
 app.post("/api/publish/verify-otp", async (req, res) => {
   const { otp } = req.body || {};
   if (!otp || String(otp).length !== 6) return res.status(400).json({ error: "6-digit OTP required" });
   if (!pendingAuthCtx) return res.status(400).json({ error: "No login in progress — call /start first" });
 
   try {
-    const pages = pendingAuthCtx.pages();
-    const pg    = pages[pages.length - 1];
+    const pages  = pendingAuthCtx.pages();
+    const pg     = pages[pages.length - 1];
     const otpStr = String(otp);
-    // Wait for OTP form — use the known button id from error logs
+
     broadcast("info", "Waiting for OTP form...");
     await pg.waitForSelector('#verifyOtpButton, [data-testid="multi-step-verify-otp-button"]', { timeout: 15000 });
-    await pg.waitForTimeout(600); // let React render OTP input boxes
+    await pg.waitForTimeout(600);
 
-    // Log all visible inputs for diagnostics
-    const allVisible = await pg.locator('input:visible').all();
-    broadcast("info", `Visible inputs on OTP page: ${allVisible.length}`);
-    for (let i = 0; i < Math.min(allVisible.length, 8); i++) {
-      const d = await allVisible[i].evaluate(el =>
-        `type=${el.type} maxLen=${el.maxLength} id="${el.id}" name="${el.name}" ph="${el.placeholder}"`
-      ).catch(() => "?");
-      broadcast("info", `  input[${i}]: ${d}`);
-    }
+    const allVisible = await pg.locator("input:visible").all();
+    broadcast("info", `Found ${allVisible.length} input(s) on OTP page`);
 
-    broadcast("info", "Filling OTP...");
-
-    // Primary approach: click the FIRST visible input and type the full OTP string.
-    // Most React OTP components auto-advance focus after each digit, so typing
-    // the full string from box[0] fills all 6 boxes correctly.
-    // pressSequentially fires keydown+keypress+input+keyup per character — exactly
-    // what React controlled inputs need to update state and enable the submit button.
     if (allVisible.length > 0) {
       await allVisible[0].click();
       await pg.waitForTimeout(200);
       await allVisible[0].pressSequentially(otpStr, { delay: 120 });
     } else {
-      throw new Error("No input fields found on OTP page");
+      throw new Error("No input fields on OTP page");
     }
-
     await pg.waitForTimeout(500);
 
-    // If auto-advance didn't work (button still disabled), try filling each box individually
     const btnDisabled = await pg.$eval(
       '#verifyOtpButton, [data-testid="multi-step-verify-otp-button"]',
       el => el.disabled
     ).catch(() => false);
 
     if (btnDisabled && allVisible.length >= 6) {
-      broadcast("info", "Auto-advance may not have worked — filling each box individually...");
+      broadcast("info", "Filling each OTP box individually...");
       for (let i = 0; i < 6; i++) {
         await allVisible[i].click();
         await allVisible[i].pressSequentially(otpStr[i], { delay: 80 });
@@ -209,35 +179,30 @@ app.post("/api/publish/verify-otp", async (req, res) => {
       await pg.waitForTimeout(400);
     }
 
-    // Wait for Verify button to become enabled (OTP filled → button enables)
-    broadcast("info", "Waiting for Verify button to enable...");
     await pg.waitForSelector(
       '#verifyOtpButton:not([disabled]), [data-testid="multi-step-verify-otp-button"]:not([disabled])',
       { timeout: 8000 }
-    ).catch(() => broadcast("info", "Verify button still disabled after filling — attempting click anyway"));
+    ).catch(() => {});
 
-    broadcast("info", "Clicking Verify & Login...");
-    // Use the known button ID for a reliable click
+    broadcast("info", "Clicking Verify...");
     await pg.click('#verifyOtpButton, [data-testid="multi-step-verify-otp-button"]', { timeout: 8000 })
       .catch(() => pg.getByRole("button", { name: /verify/i }).click({ timeout: 5000 }));
 
-    // Wait until we leave the ccbp.in login domain
-    await pg.waitForURL("**/config.topin.tech/**", { timeout: 25000 });
-
-    if (onLoginPage(pg)) throw new Error("Still on login page — OTP may be incorrect or expired");
-
-    broadcast("info", "Logged in — waiting for app to fully initialise...");
-    // Wait for React to set up auth state in memory before we save storage state
+    await pg.waitForTimeout(2000);
+    await pg.waitForURL(u => !u.href.includes("accounts.ccbp.in"), { timeout: 25000 }).catch(() => {});
     await pg.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
-    await pg.waitForTimeout(1500);
+    await pg.waitForTimeout(2000);
 
-    await pendingAuthCtx.storageState({ path: SESSION_FILE });
+    const currentUrl = pg.url();
+    if (currentUrl.includes("accounts.ccbp.in") || currentUrl === "about:blank") {
+      throw new Error("Still on login page — OTP may be incorrect or expired");
+    }
 
-    activeCtx      = pendingAuthCtx;
-    activePg       = pg;   // preserve this exact page — React auth state is live here
+    // Give React time to complete the auth_code exchange (token capture happens via response listener)
+    await pg.waitForTimeout(2000);
+
+    broadcast("success", "Logged in — tokens saved for future publishes");
     pendingAuthCtx = null;
-
-    broadcast("success", "Logged into Topin — ready to publish");
     res.json({ status: "authenticated" });
   } catch (e) {
     broadcast("error", `OTP verification failed: ${e.message}`);
@@ -245,190 +210,84 @@ app.post("/api/publish/verify-otp", async (req, res) => {
   }
 });
 
-// ── Step 3: Publish ───────────────────────────────────────────
+// ── Step 3: Publish via direct API ───────────────────────────
 app.post("/api/publish/run", async (req, res) => {
-  if (jobRunning) return res.status(409).json({ error: "A job is already running" });
+  if (jobRunning) return res.status(409).json({ error: "A publish job is already running" });
 
   const {
-    assessmentName, assessmentDate, startTime, endTime,
-    uniqueExamId,   exitPin = "1234", accessType = "Public",
+    configUrl, title,
+    assessmentDate, startTime, endTime,
+    exitPin, uniqueExamId,
+    isSEB = true, isMock = false,
   } = req.body || {};
 
-  if (!assessmentName || !assessmentDate || !startTime || !endTime || !uniqueExamId)
-    return res.status(400).json({ error: "Missing: assessmentName, assessmentDate, startTime, endTime, uniqueExamId" });
+  if (!configUrl || !title || !assessmentDate || !startTime || !endTime || !uniqueExamId || !exitPin) {
+    return res.status(400).json({ error: "Missing fields: configUrl, title, assessmentDate, startTime, endTime, uniqueExamId, exitPin" });
+  }
 
+  // Try to get a valid token (auto-refresh chain)
+  const accessToken = await topinClient.getValidTopinToken(broadcast);
+  if (!accessToken) {
+    return res.status(401).json({ status: "needs_otp", error: "No valid Topin token — complete OTP login first" });
+  }
+
+  // Respond immediately so the browser isn't waiting; publish runs async
   res.json({ status: "started" });
   jobRunning = true; cancelRequested = false;
 
   (async () => {
-    let ownedCtx = null;  // only close if we created it in this run
-    let pg;
     try {
-      const b = await ensureBrowser();
-
-      if (activePg && !activePg.isClosed()) {
-        // Best path: reuse the live page that still has React auth in memory
-        pg = activePg;
-        broadcast("info", "Using live authenticated session...");
-      } else if (fs.existsSync(SESSION_FILE)) {
-        // Fallback: restore from saved cookies/localStorage
-        broadcast("info", "Restoring session from file...");
-        ownedCtx = await b.newContext({ storageState: SESSION_FILE });
-        pg = await ownedCtx.newPage();
-        activeCtx = ownedCtx; activePg = pg;
-      } else {
-        broadcast("error", "No session found. Log in via the Credentials tab first.");
-        return;
-      }
-
-      // ── Verify auth ──────────────────────────────────────────
-      broadcast("info", "Verifying Topin session...");
-      await pg.goto("https://config.topin.tech/home", { waitUntil: "networkidle", timeout: 30000 });
-
-      if (onLoginPage(pg)) {
-        activeCtx = null; activePg = null;
-        broadcast("error", "Session expired — please log in again via the Credentials tab.");
-        return;
-      }
+      const label = isMock ? "Mock Assessment" : "Main Assessment";
+      broadcast("info", `Starting direct API publish: ${label}...`);
 
       if (cancelRequested) { broadcast("info", "Cancelled"); return; }
 
-      // ── Navigate to create-assessment via SPA click (avoids page reload) ──
-      broadcast("info", "Opening Create Assessment...");
-      let reachedPage = false;
+      // Get Topin user/org IDs (cached after first call)
+      broadcast("info", "Getting Topin profile...");
+      const { user_id, org_id } = await topinClient.getProfile(accessToken);
+      broadcast("info", `Profile OK — user: ${user_id?.slice(0, 8)}... org: ${org_id?.slice(0, 8)}...`);
 
-      const createLink = pg.locator([
-        'a[href*="create-assessment"]',
-        'a:has-text("Create Assessment")',
-        'button:has-text("Create Assessment")',
-        'li:has-text("Create Assessment") a',
-        'nav a:has-text("Create")',
-        '.sidebar a:has-text("Create")',
-      ].join(", ")).first();
+      if (cancelRequested) { broadcast("info", "Cancelled"); return; }
 
-      if (await createLink.isVisible({ timeout: 4000 }).catch(() => false)) {
-        await createLink.click();
-        await pg.waitForURL("**/create-assessment**", { timeout: 12000 }).catch(() => {});
-        reachedPage = pg.url().includes("create-assessment") && !onLoginPage(pg);
-      }
+      const startDatetime = topinClient.formatDatetime(assessmentDate, startTime);
+      const endDatetime   = topinClient.formatDatetime(assessmentDate, endTime);
+      broadcast("info", `Schedule: ${startDatetime} → ${endDatetime}`);
+      broadcast("info", `Tag: ${uniqueExamId}`);
+      broadcast("info", `Mode: ${isSEB ? "SEB Browser" : "Normal Browser"}`);
 
-      if (!reachedPage) {
-        // Direct URL fallback — works if auth is properly in localStorage/cookies
-        await pg.goto("https://config.topin.tech/create-assessment", { waitUntil: "networkidle", timeout: 30000 });
-      }
+      // Call Topin publish API
+      broadcast("info", "Calling Topin publish API...");
+      await topinClient.publishAssessment(accessToken, {
+        configUrl, title, startDatetime, endDatetime,
+        exitPin, uniqueExamId, isSEB,
+      });
+      broadcast("info", "Publish API call accepted — polling for result...");
 
-      if (onLoginPage(pg)) {
-        // Session valid on home but not on create-assessment means their SPA
-        // stores auth in memory only. User must re-login and publish immediately.
-        activeCtx = null; activePg = null;
-        broadcast("error", "Redirected to login on Create Assessment page. Please log in again and click Publish immediately (do not navigate away first).");
+      if (cancelRequested) { broadcast("info", "Cancelled"); return; }
+
+      // Poll GraphQL until assessment appears
+      const row = await topinClient.findPublishedAssessment(
+        accessToken, user_id, org_id, uniqueExamId,
+        (attempt, total) => broadcast("info", `Polling for published assessment (${attempt}/${total})...`)
+      );
+
+      if (!row) {
+        broadcast("error", "Assessment not found after polling. It may still be publishing — check Topin dashboard.");
         return;
       }
 
-      // Wait for the name input to appear
-      broadcast("info", "Waiting for form...");
-      await pg.waitForSelector([
-        'input[placeholder="Enter Assessment Name"]',
-        'input[placeholder*="Assessment" i]',
-        'input[name*="name" i]',
-      ].join(", "), { timeout: 25000 });
-
-      // ── Assessment name ──────────────────────────────────────
-      broadcast("info", "Filling assessment name...");
-      const nameInput = pg.locator([
-        'input[placeholder="Enter Assessment Name"]',
-        'input[placeholder*="Assessment Name" i]',
-        'input[name*="name" i]',
-      ].join(", ")).first();
-      await nameInput.fill(assessmentName);
-
-      // ── Exam ID tag ──────────────────────────────────────────
-      broadcast("info", "Adding exam ID tag...");
-      const tagInput = pg.locator('[placeholder*="tag" i], [placeholder*="Tag"], [placeholder*="label" i]').first();
-      if (await tagInput.count()) {
-        await tagInput.fill(uniqueExamId);
-        await tagInput.press("Enter");
-        await pg.waitForTimeout(400);
-      }
-
-      if (cancelRequested) { broadcast("info", "Cancelled"); return; }
-
-      // ── Schedule ─────────────────────────────────────────────
-      broadcast("info", "Setting schedule...");
-      await setDateTimeField(pg, "start", assessmentDate, startTime);
-      await setDateTimeField(pg, "end",   assessmentDate, endTime);
-
-      // ── Exam environment ─────────────────────────────────────
-      broadcast("info", "Configuring exam environment...");
-      const exitPinField = pg.locator([
-        '[data-testid="ao-exam-environment-option"] input',
-        'input[placeholder*="PIN" i]',
-        'input[placeholder*="pin" i]',
-        'input[placeholder*="exit" i]',
-      ].join(", ")).first();
-      if (await exitPinField.count()) await exitPinField.fill(exitPin);
-
-      const qrToggle = pg.locator('text=/QR.*attendance/i >> .. >> input[type="checkbox"]').first();
-      if (await qrToggle.count() && !(await qrToggle.isChecked())) await qrToggle.check();
-
-      const pinToggle = pg.locator('text=/Common Start PIN/i >> .. >> input[type="checkbox"]').first();
-      if (await pinToggle.count() && !(await pinToggle.isChecked())) await pinToggle.check();
-
-      if (cancelRequested) { broadcast("info", "Cancelled"); return; }
-
-      // ── Publish ──────────────────────────────────────────────
-      broadcast("info", "Clicking Publish Assessment...");
-      const publishBtn = pg.locator([
-        'button:has-text("Publish Assessment")',
-        'button:has-text("Publish")',
-        'button[type="submit"]',
-      ].join(", ")).first();
-      await publishBtn.click({ timeout: 15000 });
-      await pg.waitForTimeout(1500);
-
-      // Access type dialog
-      const accessBtn = pg.locator(`button:has-text("${accessType}")`).first();
-      if (await accessBtn.count()) await accessBtn.click();
-
-      const agreeBtn = pg.locator([
-        'button:has-text("Yes, I agree")',
-        'button:has-text("Agree")',
-        'button:has-text("Confirm")',
-      ].join(", ")).first();
-      if (await agreeBtn.count()) await agreeBtn.click();
-
-      await pg.waitForTimeout(2500);
-
-      // ── Extract link ─────────────────────────────────────────
-      broadcast("info", "Extracting assessment link...");
-      let assessmentLink = "";
-      try {
-        assessmentLink = await pg.evaluate(() => navigator.clipboard.readText());
-      } catch {}
-      if (!assessmentLink) {
-        const linkEl = pg.locator([
-          'input[value*="org_id="]',
-          'input[value*="topin"]',
-          'a[href*="take.topin"]',
-          'a[href*="topin.tech"]',
-        ].join(", ")).first();
-        if (await linkEl.count()) {
-          try { assessmentLink = await linkEl.inputValue(); } catch { assessmentLink = await linkEl.getAttribute("href").catch(() => ""); }
-        }
-      }
-
-      const urlMatch = pg.url().match(/\/(?:edit|view)-assessment\/([0-9a-f-]{36})/i);
-      await activeCtx?.storageState({ path: SESSION_FILE }).catch(() => {});
-
-      broadcast("done", "Assessment published on Topin", {
+      const assessmentLink = topinClient.buildAssessmentLink(row.published_assess_id);
+      broadcast("done", `${label} published successfully!`, {
         assessmentLink,
-        assessmentId: urlMatch?.[1] || "",
+        assessmentId:       row.id,
+        publishedAssessId:  row.published_assess_id,
+        exitPin,
+        uniqueExamId,
+        isMock,
       });
     } catch (e) {
       broadcast("error", `Publish failed: ${e.message}`);
     } finally {
-      // Only close context if we created it in this run (session file fallback)
-      if (ownedCtx && ownedCtx !== activeCtx) await ownedCtx.close().catch(() => {});
       jobRunning = false;
     }
   })();
@@ -441,33 +300,11 @@ app.post("/api/publish/cancel", (_req, res) => {
   res.json({ status: "cancelling" });
 });
 
-// ── Date/time helper ──────────────────────────────────────────
-async function setDateTimeField(pg, field, dateStr, timeStr) {
-  const [yyyy, mm, dd] = dateStr.split("-");
-  const [hh, min]      = timeStr.split(":");
-
-  const dateInput = pg.locator([
-    `[data-field="${field}-date"] input`,
-    `input[name="${field}Date"]`,
-    `input[placeholder*="${field === "start" ? "start" : "end"} date" i]`,
-    `input[placeholder*="date" i]`,
-  ].join(", ")).first();
-  if (await dateInput.count()) await dateInput.fill(`${mm}/${dd}/${yyyy}`);
-
-  const timeInput = pg.locator([
-    `[data-field="${field}-time"] input`,
-    `input[name="${field}Time"]`,
-    `input[placeholder*="${field === "start" ? "start" : "end"} time" i]`,
-    `input[placeholder*="time" i]`,
-  ].join(", ")).first();
-  if (await timeInput.count()) await timeInput.fill(`${hh}:${min}`);
-}
-
 app.listen(PORT, () => {
   console.log("─────────────────────────────────────────────");
-  console.log(`  IOE Portal Automation Server`);
+  console.log(`  IOE Portal — Topin Direct API Server`);
   console.log(`  Running at: http://localhost:${PORT}`);
   console.log(`  Health:     http://localhost:${PORT}/api/health`);
-  console.log(`  Set HEADLESS=false to watch the browser`);
+  console.log(`  Tokens:     ${require("path").join(__dirname, "topin-tokens.json")}`);
   console.log("─────────────────────────────────────────────");
 });

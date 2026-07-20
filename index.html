@@ -866,6 +866,15 @@
               <option value="java">Java</option>
             </select>
           </div>
+          <div id="cf-p4-subtype-row" style="display:none;margin-bottom:12px">
+            <label>Assessment Sub-type <span style="font-size:.72rem;color:var(--muted)">(Phase 4)</span></label>
+            <select id="cf-p4-subtype">
+              <option value="weekly">Weekly Assessment (has week number)</option>
+              <option value="nxtmock">NxtMock — Mock (no week)</option>
+              <option value="nxtmock_tr1">NxtMock TR1 — Main (no week)</option>
+              <option value="nxtmock_tr2">NxtMock TR2 — Main (no week)</option>
+            </select>
+          </div>
           <div class="form-row">
             <div>
               <label>Week</label>
@@ -875,6 +884,13 @@
               <label>Assessment Date</label>
               <input type="date" id="cf-adate" />
             </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <label>Assessment Mode</label>
+            <select id="cf-mode">
+              <option value="SEB_BROWSER">SEB Browser (locked-down exam browser)</option>
+              <option value="BROWSER">Normal Browser (Chrome)</option>
+            </select>
           </div>
           <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:12px">
             <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#1d4ed8;margin-bottom:8px">Main Assessment</div>
@@ -1753,6 +1769,87 @@
   </div>
 </div>
 
+<!-- TOPIN PUBLISH SETUP MODAL -->
+<div class="modal-backdrop" id="topin-publish-setup-modal">
+  <div class="modal" style="max-width:540px">
+    <h3 style="margin-bottom:4px">Publish to Topin</h3>
+    <p id="tps-meta" style="font-size:.8rem;color:var(--muted);margin-bottom:20px"></p>
+
+    <!-- Assessment Title -->
+    <label class="form-label">Assessment Title <span style="color:#ef4444">*</span></label>
+    <input id="tps-title" class="form-input" placeholder="e.g. W5 Phase 2 Batch 4 — NxtWave Intensive Assessment" style="margin-bottom:14px" />
+
+    <!-- Phase 4 sub-type (shown only for P4 configs) -->
+    <div id="tps-p4-row" style="display:none;margin-bottom:14px">
+      <label class="form-label">Assessment Sub-type <span style="font-size:.72rem;color:var(--muted)">(Phase 4)</span></label>
+      <select id="tps-p4-subtype" class="form-input" onchange="updateTpsTagPreviews()">
+        <option value="weekly">Weekly Assessment</option>
+        <option value="nxtmock">NxtMock — Mock (no week)</option>
+        <option value="nxtmock_tr1">NxtMock TR1 — Main (no week)</option>
+        <option value="nxtmock_tr2">NxtMock TR2 — Main (no week)</option>
+      </select>
+    </div>
+
+    <!-- Main assessment details -->
+    <div id="tps-main-section" style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#1d4ed8;margin-bottom:10px">Main Assessment</div>
+      <div style="margin-bottom:8px">
+        <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Exam Tag (auto-generated)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="tps-main-tag" class="form-input" readonly style="flex:1;font-family:monospace;font-size:.76rem;background:#fff" />
+          <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('tps-main-tag').value)" style="flex-shrink:0">Copy</button>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Exit PIN (auto-generated)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="tps-main-pin" class="form-input" readonly style="width:130px;font-family:monospace;font-size:1rem;letter-spacing:.12em;text-align:center;background:#fff" />
+          <button class="btn btn-outline btn-sm" onclick="regenMainPin()" title="Regenerate">&#x21BB;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mock assessment details (only when config has mock link) -->
+    <div id="tps-mock-section" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#15803d;margin-bottom:10px">Mock Assessment</div>
+      <div style="margin-bottom:8px">
+        <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Exam Tag (auto-generated)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="tps-mock-tag" class="form-input" readonly style="flex:1;font-family:monospace;font-size:.76rem;background:#fff" />
+          <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('tps-mock-tag').value)" style="flex-shrink:0">Copy</button>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Exit PIN (auto-generated)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="tps-mock-pin" class="form-input" readonly style="width:130px;font-family:monospace;font-size:1rem;letter-spacing:.12em;text-align:center;background:#fff" />
+          <button class="btn btn-outline btn-sm" onclick="regenMockPin()" title="Regenerate">&#x21BB;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- What to publish -->
+    <div style="margin-bottom:18px">
+      <label class="form-label">Publish target</label>
+      <select id="tps-target" class="form-input">
+        <option value="main">Main Assessment only</option>
+        <option value="mock">Mock Assessment only</option>
+        <option value="both">Both — Mock first, then Main</option>
+      </select>
+    </div>
+
+    <!-- Token status indicator -->
+    <div id="tps-token-status" style="font-size:.78rem;padding:8px 12px;border-radius:6px;margin-bottom:16px;background:#f8fafc;border:1px solid #e2e8f0;color:var(--muted)">
+      Checking server connection...
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('topin-publish-setup-modal')">Cancel</button>
+      <button class="btn btn-primary" id="tps-confirm-btn" onclick="confirmTopinPublish()">Start Publishing</button>
+    </div>
+  </div>
+</div>
+
 <!-- CREDENTIALS & AUTOMATION MODAL -->
 <div class="modal-backdrop" id="creds-modal">
   <div class="modal" style="max-width:560px">
@@ -1766,11 +1863,13 @@
 
     <!-- Invite API tab -->
     <div id="creds-tab-invite">
-      <label class="form-label">Invite API Endpoint</label>
-      <input class="form-input" id="creds-invite-endpoint" placeholder="https://api.example.com/invite" style="margin-bottom:12px" />
-      <label class="form-label">API Key (X-API-KEY)</label>
-      <input class="form-input" id="creds-invite-key" type="password" placeholder="your-api-key" style="margin-bottom:4px" />
-      <p style="font-size:.73rem;color:var(--muted);margin-bottom:16px">Key is stored in Firestore. It is only visible to Admin users.</p>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px">
+        <p style="font-size:.83rem;font-weight:600;color:#15803d;margin:0 0 6px">Invite API is configured server-side</p>
+        <p style="font-size:.78rem;color:#374151;margin:0">
+          The invite API key (<code>TOPIN_INVITE_API_KEY</code>) is stored as a Vercel environment variable and is never exposed in the browser.
+          No configuration is needed here — invites will work automatically when you click "Invite Students" after publishing.
+        </p>
+      </div>
     </div>
 
     <!-- Topin Server tab -->

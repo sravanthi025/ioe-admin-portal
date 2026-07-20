@@ -49,10 +49,14 @@ ioe-admin-portal/
 │   └── ic-request.js           # POST /api/ic-request — writes interview requests to IC Firebase
 │
 └── server/                     # LOCAL automation server — NOT deployed, runs on user's machine
-    ├── index.js                # Express + Playwright server for Topin publishing automation
+    ├── index.js                # Express server: OTP login (Playwright) + direct Topin API publish
+    ├── topin-client.js         # Token management, tag gen, Topin REST + GraphQL API calls
+    ├── seb-template.xml        # SEB browser config XML (uploaded with SEB-mode assessments)
+    ├── invite-email-template.html  # HTML email body for student assessment invitations
     ├── package.json            # Server deps: express, cors, playwright
     ├── start.ps1               # PowerShell script to start the local server
-    └── topin-session.json      # Saved Playwright browser session (gitignored)
+    ├── topin-session.json      # Saved Playwright browser session (gitignored)
+    └── topin-tokens.json       # Saved IB + Topin OAuth tokens (gitignored)
 ```
 
 ---
@@ -259,7 +263,7 @@ Writes interview schedule requests to IC Firebase.
 
 ## Local Automation Server (`server/`)
 
-The local server is an Express + Playwright app that automates publishing assessments to `config.topin.tech`.
+The local server is an Express + Playwright app. **Playwright is used only for OTP login.** Assessment publishing uses the **Topin REST API directly** (no browser form-filling).
 
 **It runs on the user's laptop, not on Vercel.** The portal's browser connects to it at `http://localhost:3001`.
 
@@ -272,24 +276,65 @@ node index.js
 # Or use start.ps1
 ```
 
+### Server Files
+
+| File | Purpose |
+|---|---|
+| `index.js` | Express server with OTP flow + direct API publish routes |
+| `topin-client.js` | All Topin API logic: token refresh, tag gen, publish, GraphQL polling |
+| `seb-template.xml` | SEB browser configuration XML (uploaded with each SEB-mode assessment) |
+| `invite-email-template.html` | Invite email body sent to students |
+| `topin-tokens.json` | Saved IB + Topin OAuth tokens (gitignored — stays on local machine) |
+
 ### API Endpoints (local, port 3001)
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/health` | Health check |
-| `GET /api/publish/progress` | SSE stream — live logs of the publish job |
-| `POST /api/publish/start` | Start login flow (sends OTP to mobile number) |
-| `POST /api/publish/verify-otp` | Submit 6-digit OTP to complete auth |
-| `POST /api/publish/run` | Run the publish automation |
+| `GET /api/publish/token-status` | Check if Topin token is valid (drives UI indicator) |
+| `GET /api/publish/progress` | SSE stream — live publish logs |
+| `POST /api/publish/start` | Open Chromium, navigate to Topin login, trigger OTP |
+| `POST /api/publish/verify-otp` | Fill OTP in browser; **captures IB + Topin tokens** via network interception |
+| `POST /api/publish/run` | Publish via direct Topin REST API (no browser) |
 | `POST /api/publish/cancel` | Cancel an in-progress job |
 
-### Topin Publish Flow
-1. Portal calls `/start` with mobile number → server opens Chromium, navigates to `config.topin.tech`, triggers OTP
-2. User enters OTP in portal → portal calls `/verify-otp` → server fills OTP in browser, completes auth, saves session to `topin-session.json`
-3. Portal calls `/run` with assessment params → server navigates to Create Assessment, fills the form (name, exam ID tag, schedule, exit PIN, QR attendance), clicks Publish, extracts the resulting assessment link
-4. SSE stream (`/progress`) delivers live log messages to the portal's progress modal throughout
+### Direct API Publish Flow (new)
+1. Portal opens **Topin Publish Setup modal**: user enters assessment title, sees auto-generated exam tag + exit PIN, selects target (Main/Mock/Both)
+2. Portal calls `/run` → server tries 3-level token refresh:
+   - Level 1: use cached Topin access token if not expired
+   - Level 2: exchange IB access token for new Topin token via `code/v1` + `auth_code/v2`
+   - Level 3: refresh IB session via `token/refresh/v1`, then do level 2
+3. If all levels fail → responds `{ status: "needs_otp" }` → portal shows OTP form
+4. If token obtained → calls `POST /api/nw_assess_config/user/org_assess/publish/` (double-encoded body)
+5. Polls GraphQL (`topin-config-prod-apis.ccbp.in`) with [2,3,4,5,5,5,5]s delays until published assessment appears
+6. Broadcasts `done` event via SSE with `assessmentLink`, `publishedAssessId`, `exitPin`, `uniqueExamId`
+7. Portal updates Firestore config doc with all publish details
 
-**Session persistence:** After successful auth, cookies/localStorage are saved to `topin-session.json`. On subsequent runs, the server tries the live page first, then the session file, before asking for a new OTP. Topin uses in-memory React auth state, so the server always reuses the same browser page (not opening a new page from the saved session) to avoid re-authentication.
+### OTP Flow (only needed when all tokens expired)
+1. Portal calls `/start` with mobile → Chromium opens `config.topin.tech`, triggers OTP
+2. Response listener is set up on the Playwright browser context to capture IB + Topin tokens
+3. User enters OTP → portal calls `/verify-otp` → OTP filled in browser
+4. On auth complete, network interception captures `ib_access_token` and `topin_access_token`
+5. Tokens saved to `server/topin-tokens.json` — future publishes skip OTP entirely
+
+### Tag Generation Rules
+Each assessment gets a unique `uniqueExamId` tag based on phase/batch/week/domain:
+
+| Phase | Mock Tag | Main Tag |
+|---|---|---|
+| P1 | `IO26_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_{B}_{W}` | `IO26_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_{B}_{W}` |
+| P2 | `IO26BM_INTENSIVE_OFFLINE_MOCK_NXTMOCK_{B}_{W}` | `IO26BM_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_{B}_{W}` |
+| P3 Python | `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_PYTHON_{B}_{W}` | `IO26_P3_INTENSIVE_OFFLINE_MAIN_INTERVIEW_PYTHON_{B}_{W}` |
+| P3 Java | `IO26_P3_INTENSIVE_OFFLINE_MOCK_INTERVIEW_JAVA_{B}_{W}` | `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_JAVA_{B}_{W}` |
+| P4 Weekly | `IO26BM_P4_INTENSIVE_OFFLINE_MOCK_ASSESSMENT_{D}_{B}_{W}` | `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_{D}_{B}_{W}` |
+| P4 NxtMock | `IO26BM_P4_INTENSIVE_OFFLINE_MOCK_NXTMOCK_{D}_{B}` | — |
+| P4 NxtMock TR1 | — | `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_NXTMOCK_{D}_TR1_{B}` |
+| P4 NxtMock TR2 | — | `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_NXTMOCK_{D}_TR2_{B}` |
+
+### Invite API
+`POST /api/invite` (Vercel serverless) sends student UIDs to:  
+`https://nxtwave-assessments-backend-topin-prod-apis.ccbp.in/api/nw_integrations/invite/assess/candidates/v2/`  
+API key stored as Vercel env var `TOPIN_INVITE_API_KEY` — never exposed to browser.
 
 ---
 
