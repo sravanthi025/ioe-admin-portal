@@ -1771,81 +1771,73 @@
 
 <!-- TOPIN PUBLISH SETUP MODAL -->
 <div class="modal-backdrop" id="topin-publish-setup-modal">
-  <div class="modal" style="max-width:540px">
-    <h3 style="margin-bottom:4px">Publish to Topin</h3>
-    <p id="tps-meta" style="font-size:.8rem;color:var(--muted);margin-bottom:20px"></p>
+  <div class="modal" style="max-width:460px;padding:16px 18px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px">
+      <h3 style="margin:0;font-size:.95rem">Publish to Topin</h3>
+      <span id="tps-meta" style="font-size:.73rem;color:var(--muted)"></span>
+    </div>
 
-    <!-- Assessment Title -->
-    <label class="form-label">Assessment Title <span style="color:#ef4444">*</span></label>
-    <input id="tps-title" class="form-input" placeholder="e.g. W5 Phase 2 Batch 4 — NxtWave Intensive Assessment" style="margin-bottom:14px" />
+    <!-- Title -->
+    <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin:10px 0 3px">Assessment Title <span style="color:#ef4444">*</span></label>
+    <input id="tps-title" class="form-input" placeholder="e.g. W5 — P1 B1" style="margin-bottom:8px;font-size:.84rem;padding:6px 10px" />
 
-    <!-- Phase 4 sub-type (shown only for P4 configs) -->
-    <div id="tps-p4-row" style="display:none;margin-bottom:14px">
-      <label class="form-label">Assessment Sub-type <span style="font-size:.72rem;color:var(--muted)">(Phase 4)</span></label>
-      <select id="tps-p4-subtype" class="form-input" onchange="updateTpsTagPreviews()">
+    <!-- Phase 4 sub-type -->
+    <div id="tps-p4-row" style="display:none;margin-bottom:8px">
+      <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">P4 Sub-type</label>
+      <select id="tps-p4-subtype" class="form-input" onchange="updateTpsTagPreviews()" style="font-size:.82rem;padding:5px 8px">
         <option value="weekly">Weekly Assessment</option>
         <option value="nxtmock">NxtMock — Mock (no week)</option>
-        <option value="nxtmock_tr1">NxtMock TR1 — Main (no week)</option>
-        <option value="nxtmock_tr2">NxtMock TR2 — Main (no week)</option>
+        <option value="nxtmock_tr1">NxtMock TR1 — Main</option>
+        <option value="nxtmock_tr2">NxtMock TR2 — Main</option>
       </select>
     </div>
 
-    <!-- Main assessment details -->
-    <div id="tps-main-section" style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:12px">
-      <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#1d4ed8;margin-bottom:10px">Main Assessment</div>
-      <div style="margin-bottom:8px">
-        <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Exam Tag (auto-generated)</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input id="tps-main-tag" class="form-input" readonly style="flex:1;font-family:monospace;font-size:.76rem;background:#fff" />
-          <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('tps-main-tag').value)" style="flex-shrink:0">Copy</button>
-        </div>
+    <!-- Main -->
+    <div id="tps-main-section" style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:7px;padding:8px 10px;margin-bottom:6px">
+      <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#1d4ed8;margin-bottom:6px">Main</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:5px;align-items:center;margin-bottom:5px">
+        <input id="tps-main-tag" class="form-input" readonly style="font-family:monospace;font-size:.7rem;background:#fff;padding:4px 7px" />
+        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('tps-main-tag').value)" style="font-size:.7rem;padding:3px 8px">Copy</button>
       </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <input id="tps-main-pin" class="form-input" readonly style="width:100px;font-family:monospace;font-size:.9rem;letter-spacing:.12em;text-align:center;background:#fff;padding:4px 7px" />
+        <button class="btn btn-outline btn-sm" onclick="regenMainPin()" title="New PIN" style="font-size:.78rem;padding:3px 7px">&#x21BB;</button>
+        <span style="font-size:.68rem;color:var(--muted)">Exit PIN</span>
+      </div>
+    </div>
+
+    <!-- Mock -->
+    <div id="tps-mock-section" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 10px;margin-bottom:8px">
+      <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#15803d;margin-bottom:6px">Mock</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:5px;align-items:center;margin-bottom:5px">
+        <input id="tps-mock-tag" class="form-input" readonly style="font-family:monospace;font-size:.7rem;background:#fff;padding:4px 7px" />
+        <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('tps-mock-tag').value)" style="font-size:.7rem;padding:3px 8px">Copy</button>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <input id="tps-mock-pin" class="form-input" readonly style="width:100px;font-family:monospace;font-size:.9rem;letter-spacing:.12em;text-align:center;background:#fff;padding:4px 7px" />
+        <button class="btn btn-outline btn-sm" onclick="regenMockPin()" title="New PIN" style="font-size:.78rem;padding:3px 7px">&#x21BB;</button>
+        <span style="font-size:.68rem;color:var(--muted)">Exit PIN</span>
+      </div>
+    </div>
+
+    <!-- Target + token status in one row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:end">
       <div>
-        <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Exit PIN (auto-generated)</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input id="tps-main-pin" class="form-input" readonly style="width:130px;font-family:monospace;font-size:1rem;letter-spacing:.12em;text-align:center;background:#fff" />
-          <button class="btn btn-outline btn-sm" onclick="regenMainPin()" title="Regenerate">&#x21BB;</button>
-        </div>
+        <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Target</label>
+        <select id="tps-target" class="form-input" style="font-size:.82rem;padding:5px 8px">
+          <option value="main">Main only</option>
+          <option value="mock">Mock only</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div id="tps-token-status" style="font-size:.7rem;padding:5px 8px;border-radius:6px;background:#f8fafc;border:1px solid #e2e8f0;color:var(--muted);line-height:1.3">
+        Checking...
       </div>
     </div>
 
-    <!-- Mock assessment details (only when config has mock link) -->
-    <div id="tps-mock-section" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:14px">
-      <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#15803d;margin-bottom:10px">Mock Assessment</div>
-      <div style="margin-bottom:8px">
-        <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Exam Tag (auto-generated)</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input id="tps-mock-tag" class="form-input" readonly style="flex:1;font-family:monospace;font-size:.76rem;background:#fff" />
-          <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('tps-mock-tag').value)" style="flex-shrink:0">Copy</button>
-        </div>
-      </div>
-      <div>
-        <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Exit PIN (auto-generated)</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input id="tps-mock-pin" class="form-input" readonly style="width:130px;font-family:monospace;font-size:1rem;letter-spacing:.12em;text-align:center;background:#fff" />
-          <button class="btn btn-outline btn-sm" onclick="regenMockPin()" title="Regenerate">&#x21BB;</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- What to publish -->
-    <div style="margin-bottom:18px">
-      <label class="form-label">Publish target</label>
-      <select id="tps-target" class="form-input">
-        <option value="main">Main Assessment only</option>
-        <option value="mock">Mock Assessment only</option>
-        <option value="both">Both — Mock first, then Main</option>
-      </select>
-    </div>
-
-    <!-- Token status indicator -->
-    <div id="tps-token-status" style="font-size:.78rem;padding:8px 12px;border-radius:6px;margin-bottom:16px;background:#f8fafc;border:1px solid #e2e8f0;color:var(--muted)">
-      Checking server connection...
-    </div>
-
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal('topin-publish-setup-modal')">Cancel</button>
-      <button class="btn btn-primary" id="tps-confirm-btn" onclick="confirmTopinPublish()">Start Publishing</button>
+    <div class="modal-footer" style="margin-top:4px;padding-top:10px">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('topin-publish-setup-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="tps-confirm-btn" onclick="confirmTopinPublish()">Start Publishing</button>
     </div>
   </div>
 </div>
