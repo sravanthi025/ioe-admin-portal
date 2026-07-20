@@ -67,24 +67,34 @@ onAuthStateChanged(auth, async user => {
     document.body.classList.remove("guest-mode");
     const banner = document.getElementById("guest-banner");
     if (banner) banner.style.display = "none";
-    const snap = await getDocs(query(collection(db, "team_members"), where("email", "==", user.email), limit(1)));
     let displayLabel = user.email;
-    if (!snap.empty) {
-      const m = snap.docs[0].data();
-      if (m.status !== "approved") {
-        document.getElementById("auth-screen").style.display    = "none";
-        document.getElementById("app-screen").style.display     = "none";
-        document.getElementById("pending-screen").style.display = "flex";
-        document.getElementById("pending-msg").textContent =
-          m.status === "pending"  ? `Your account (${user.email}) is pending admin approval. Contact admin.`
-          : `Your account access has been rejected. Contact admin.`;
-        return;
+    try {
+      const snap = await getDocs(query(collection(db, "team_members"), where("email", "==", user.email), limit(1)));
+      if (!snap.empty) {
+        const m = snap.docs[0].data();
+        if (m.status !== "approved") {
+          document.getElementById("auth-screen").style.display    = "none";
+          document.getElementById("app-screen").style.display     = "none";
+          document.getElementById("pending-screen").style.display = "flex";
+          document.getElementById("pending-msg").textContent =
+            m.status === "pending"  ? `Your account (${user.email}) is pending admin approval. Contact admin.`
+            : `Your account access has been rejected. Contact admin.`;
+          return;
+        }
+        currentUserTeam = m.team;
+        displayLabel = m.name ? `${m.name} · ${m.team}` : user.email;
+      } else {
+        currentUserTeam = "admin";
+        displayLabel = user.email;
       }
-      currentUserTeam = m.team;
-      displayLabel = m.name ? `${m.name} · ${m.team}` : user.email;
-    } else {
-      currentUserTeam = "admin";
-      displayLabel = user.email;
+    } catch (e) {
+      // Firestore rules blocking read — show a clear error instead of hanging
+      const btn = document.getElementById("login-btn");
+      const err = document.getElementById("login-error");
+      if (btn) { btn.disabled = false; btn.textContent = "Sign In"; }
+      if (err) { err.style.display = "block"; err.textContent = "Database permission error. Contact admin to fix Firestore rules."; }
+      console.error("team_members read failed:", e.message);
+      return;
     }
     document.getElementById("auth-screen").style.display    = "none";
     document.getElementById("pending-screen").style.display = "none";
