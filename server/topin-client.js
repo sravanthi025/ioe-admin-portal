@@ -288,8 +288,9 @@ async function publishAssessment(accessToken, opts) {
 }
 
 // ── Poll GraphQL for the published assessment ─────────────────
-const FIND_QUERY = `
-  query FindByTag($user_id: uuid!, $org_id: uuid!, $tag: String!) {
+// Query A: filter by user_id + NIAT org_id + tag (primary — assessment always published in NIAT org)
+const FIND_QUERY_WITH_ORG = `
+  query FindByTagOrg($user_id: uuid!, $org_id: uuid!, $tag: String!) {
     user_assessment(
       where: {
         user_id:            { _eq: $user_id }
@@ -308,22 +309,54 @@ const FIND_QUERY = `
   }
 `;
 
-async function findPublishedAssessment(accessToken, userId, orgId, uniqueExamId, onPoll) {
-  const delays = [2000, 3000, 4000, 5000, 5000, 5000, 5000];
+// Query B: fallback — drop org_id filter, just match user + tag
+const FIND_QUERY_NO_ORG = `
+  query FindByTagNoOrg($user_id: uuid!, $tag: String!) {
+    user_assessment(
+      where: {
+        user_id:  { _eq: $user_id }
+        tags_str: { _ilike: $tag }
+        published_datetime: { _is_null: false }
+      }
+      order_by: { published_datetime: desc }
+      limit: 1
+    ) {
+      id
+      published_assess_id
+      name
+      published_datetime
+    }
+  }
+`;
+
+async function findPublishedAssessment(accessToken, userId, _orgId, uniqueExamId, onPoll) {
+  // Always query against the NIAT org — assessment is always published there
+  const niatOrgId = NIAT_ORG.org_id;
+  const tag       = `%${uniqueExamId}%`;
+  // Increased delays: ~65 s total (12 attempts)
+  const delays = [3000, 4000, 5000, 5000, 5000, 5000, 5000, 5000, 6000, 6000, 6000, 6000];
   for (let i = 0; i < delays.length; i++) {
     await new Promise(r => setTimeout(r, delays[i]));
     if (onPoll) onPoll(i + 1, delays.length);
     try {
-      const res = await fetch(GRAPHQL, {
+      // Try primary query (with NIAT org_id)
+      let res = await fetch(GRAPHQL, {
         method:  "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          query:     FIND_QUERY,
-          variables: { user_id: userId, org_id: orgId, tag: `%${uniqueExamId}%` },
-        }),
+        body:    JSON.stringify({ query: FIND_QUERY_WITH_ORG, variables: { user_id: userId, org_id: niatOrgId, tag } }),
       });
-      const json = await res.json().catch(() => ({}));
-      const rows = json?.data?.user_assessment || [];
+      let json = await res.json().catch(() => ({}));
+      let rows = json?.data?.user_assessment || [];
+      if (rows.length && rows[0].published_assess_id) return rows[0];
+
+      // Fallback: query without org_id filter
+      res = await fetch(GRAPHQL, {
+        method:  "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body:    JSON.stringify({ query: FIND_QUERY_NO_ORG, variables: { user_id: userId, tag } }),
+      });
+      json = await res.json().catch(() => ({}));
+      rows = json?.data?.user_assessment || [];
       if (rows.length && rows[0].published_assess_id) return rows[0];
     } catch { /* retry */ }
   }

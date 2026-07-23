@@ -191,15 +191,23 @@ app.post("/api/publish/verify-otp", async (req, res) => {
     await pg.waitForTimeout(2000);
     await pg.waitForURL(u => !u.href.includes("accounts.ccbp.in"), { timeout: 25000 }).catch(() => {});
     await pg.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
-    await pg.waitForTimeout(2000);
+    // Give React time to complete the auth_code exchange (token capture happens via response listener)
+    await pg.waitForTimeout(3000);
 
+    // Primary success check: tokens were captured by the response listener during auth exchange.
+    // This is reliable even if Topin later redirects the browser back to the login page.
+    const captured = topinClient.loadTokens();
+    if (captured.topin_access_token || captured.ib_access_token) {
+      broadcast("success", "Logged in — tokens saved for future publishes");
+      pendingAuthCtx = null;
+      return res.json({ status: "authenticated" });
+    }
+
+    // Fallback URL check — catches genuine wrong-OTP / expired-OTP cases
     const currentUrl = pg.url();
     if (currentUrl.includes("accounts.ccbp.in") || currentUrl === "about:blank") {
       throw new Error("Still on login page — OTP may be incorrect or expired");
     }
-
-    // Give React time to complete the auth_code exchange (token capture happens via response listener)
-    await pg.waitForTimeout(2000);
 
     broadcast("success", "Logged in — tokens saved for future publishes");
     pendingAuthCtx = null;
@@ -257,11 +265,11 @@ app.post("/api/publish/run", async (req, res) => {
 
       // Call Topin publish API
       broadcast("info", "Calling Topin publish API...");
-      await topinClient.publishAssessment(accessToken, {
+      const publishResult = await topinClient.publishAssessment(accessToken, {
         configUrl, title, startDatetime, endDatetime,
         exitPin, uniqueExamId, isSEB,
       });
-      broadcast("info", "Publish API call accepted — polling for result...");
+      broadcast("info", `Publish API accepted — polling for result... (response: ${JSON.stringify(publishResult).slice(0, 120)})`);
 
       if (cancelRequested) { broadcast("info", "Cancelled"); return; }
 
@@ -272,7 +280,13 @@ app.post("/api/publish/run", async (req, res) => {
       );
 
       if (!row) {
-        broadcast("error", "Assessment not found after polling. It may still be publishing — check Topin dashboard.");
+        // Publish API accepted but assessment hasn't appeared in GraphQL yet.
+        // Emit partial success so the portal can save PIN/tag and show a manual-link field.
+        broadcast("published_pending", "Publish accepted — link not yet available. Check Topin dashboard and paste the link manually.", {
+          exitPin,
+          uniqueExamId,
+          isMock,
+        });
         return;
       }
 

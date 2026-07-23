@@ -4,7 +4,7 @@ import {
   doc, updateDoc, query, orderBy, where, serverTimestamp, writeBatch, arrayUnion, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
   signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig, db, auth } from "./firebase-config.js";
@@ -4909,12 +4909,13 @@ function logProgress(type, message) {
   log.scrollTop = log.scrollHeight;
 }
 
-function finishProgress(success, message, extra = {}) {
+function finishProgress(success, message, extra = {}, style = "") {
   const res = document.getElementById("progress-result");
   res.style.display    = "block";
-  res.style.background = success ? "#dcfce7" : "#fee2e2";
-  res.style.color      = success ? "#15803d" : "#dc2626";
-  res.style.border     = `1px solid ${success ? "#bbf7d0" : "#fca5a5"}`;
+  const isWarning = style === "warning";
+  res.style.background = isWarning ? "#fef9c3" : (success ? "#dcfce7" : "#fee2e2");
+  res.style.color      = isWarning ? "#854d0e" : (success ? "#15803d" : "#dc2626");
+  res.style.border     = `1px solid ${isWarning ? "#fde68a" : (success ? "#bbf7d0" : "#fca5a5")}`;
   res.style.borderRadius = "6px"; res.style.padding = "10px 14px"; res.style.fontSize = ".83rem";
   res.textContent = message;
   if (extra.assessmentLink) {
@@ -4928,15 +4929,43 @@ function finishProgress(success, message, extra = {}) {
   document.getElementById("progress-close-btn").style.display  = "";
 }
 
-function connectSSE(serverUrl, onDone = null) {
+function connectSSE(serverUrl, onDone = null, onPending = null) {
   if (sseSource) { sseSource.close(); sseSource = null; }
+  let publishFinished = false; // once done/pending fires, block error events from overwriting banner
   sseSource = new EventSource(`${serverUrl}/api/publish/progress`);
   sseSource.onmessage = e => {
     try {
       const data = JSON.parse(e.data);
       logProgress(data.type, data.message);
-      if (data.type === "done")  { finishProgress(true,  "Published on Topin ✓", data); if (onDone) onDone(data); }
-      if (data.type === "error") { finishProgress(false, `Error: ${data.message}`); }
+      if (data.type === "done")  { publishFinished = true; finishProgress(true,  "Published on Topin ✓", data); if (onDone) onDone(data); }
+      if (data.type === "error" && !publishFinished) { finishProgress(false, `Error: ${data.message}`); }
+      if (data.type === "published_pending") { publishFinished = true;
+        // Publish API accepted but assessment link not yet indexed — show manual paste UI
+        finishProgress(true, "Publish accepted — paste the assessment link below", data, "warning");
+        if (onPending) onPending(data);
+        // Inject a link-paste widget below the result banner
+        const res = document.getElementById("progress-result");
+        if (res && !document.getElementById("pending-link-box")) {
+          const box = document.createElement("div");
+          box.id = "pending-link-box";
+          box.style.cssText = "margin-top:10px;display:flex;gap:8px;align-items:center";
+          const inp = document.createElement("input");
+          inp.type = "text"; inp.placeholder = "Paste Topin assessment link here...";
+          inp.style.cssText = "flex:1;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:.8rem";
+          const btn = document.createElement("button");
+          btn.textContent = "Save Link";
+          btn.className = "btn btn-primary";
+          btn.style.cssText = "font-size:.8rem;padding:7px 14px;white-space:nowrap";
+          btn.onclick = () => {
+            const link = inp.value.trim();
+            if (!link) return;
+            if (onPending) onPending({ ...data, manualLink: link });
+            btn.textContent = "Saved ✓"; btn.disabled = true; inp.disabled = true;
+          };
+          box.appendChild(inp); box.appendChild(btn);
+          res.after(box);
+        }
+      }
     } catch {}
   };
   sseSource.onerror = () => logProgress("error", "SSE connection lost");
@@ -5095,29 +5124,45 @@ window.publishToTopin = async (configId, target = "main") => {
   const label = target === "both" ? "Mock + Main" : target === "mock" ? "Mock" : "Main";
   openProgressModal(`Publishing ${label} Assessment to Topin`);
 
+  const saveToFirestore = async (doneData) => {
+    const isMock   = doneData.isMock;
+    const updates  = { status: "published", published_at: serverTimestamp(), published_by: currentUserEmail, invites_sent: false };
+    if (isMock) {
+      if (doneData.assessmentLink || doneData.manualLink) updates.mock_topin_assessment_link    = doneData.assessmentLink || doneData.manualLink;
+      if (doneData.publishedAssessId)                     updates.mock_topin_published_assess_id = doneData.publishedAssessId;
+      if (doneData.exitPin)                               updates.mock_exit_pin                  = doneData.exitPin;
+      if (doneData.uniqueExamId)                          updates.mock_unique_exam_id            = doneData.uniqueExamId;
+    } else {
+      if (doneData.assessmentLink || doneData.manualLink) updates.topin_assessment_link        = doneData.assessmentLink || doneData.manualLink;
+      if (doneData.publishedAssessId)                     updates.topin_published_assess_id   = doneData.publishedAssessId;
+      if (doneData.exitPin)                               updates.exit_pin                     = doneData.exitPin;
+      if (doneData.uniqueExamId)                          updates.unique_exam_id               = doneData.uniqueExamId;
+    }
+    await updateDoc(doc(db, "configs", configId), updates);
+    const idx = allConfigs.findIndex(x => x._id === configId);
+    if (idx >= 0) Object.assign(allConfigs[idx], { ...updates, published_at: new Date() });
+    renderAssessmentsTable();
+  };
+
   const onDone = async (doneData) => {
+    try { await saveToFirestore(doneData); }
+    catch (e) { logProgress("error", "Firestore update failed: " + e.message); }
+  };
+
+  // pending_published: assessment published on Topin but link not yet indexed
+  // Save PIN/tag immediately; if user later pastes the link, save that too
+  const onPending = async (doneData) => {
     try {
-      const isMock   = doneData.isMock;
-      const updates  = { status: "published", published_at: serverTimestamp(), published_by: currentUserEmail, invites_sent: false };
-      if (isMock) {
-        if (doneData.assessmentLink)   updates.mock_topin_assessment_link   = doneData.assessmentLink;
-        if (doneData.publishedAssessId) updates.mock_topin_published_assess_id = doneData.publishedAssessId;
-        if (doneData.exitPin)          updates.mock_exit_pin                = doneData.exitPin;
-        if (doneData.uniqueExamId)     updates.mock_unique_exam_id          = doneData.uniqueExamId;
+      await saveToFirestore(doneData);
+      if (doneData.manualLink) {
+        logProgress("success", "Assessment link saved to Firestore.");
       } else {
-        if (doneData.assessmentLink)   updates.topin_assessment_link        = doneData.assessmentLink;
-        if (doneData.publishedAssessId) updates.topin_published_assess_id   = doneData.publishedAssessId;
-        if (doneData.exitPin)          updates.exit_pin                     = doneData.exitPin;
-        if (doneData.uniqueExamId)     updates.unique_exam_id               = doneData.uniqueExamId;
+        logProgress("info", `PIN and tag saved. Go to Topin dashboard → find "${doneData.uniqueExamId}" → copy the link and paste it above.`);
       }
-      await updateDoc(doc(db, "configs", configId), updates);
-      const idx = allConfigs.findIndex(x => x._id === configId);
-      if (idx >= 0) Object.assign(allConfigs[idx], { ...updates, published_at: new Date() });
-      renderAssessmentsTable();
     } catch (e) { logProgress("error", "Firestore update failed: " + e.message); }
   };
 
-  connectSSE(serverUrl, onDone);
+  connectSSE(serverUrl, onDone, onPending);
 
   const runIt = async () => {
     if (target === "mock" || target === "both") {
