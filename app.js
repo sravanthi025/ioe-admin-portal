@@ -2308,7 +2308,7 @@ window.publishAssessment = (id, target = "main") => {
 
   const buildChecks = (mock) => [
     { label: mock ? "Mock Config Link"    : "Main Config Link",   ok: !!(mock ? c.mock_config_link : c.config_link),          value: (mock ? c.mock_config_link : c.config_link) || "—" },
-    { label: mock ? "Mock Date"           : "Assessment Date",    ok: !!(mock ? c.mock_assessment_date : c.assessment_date),  value: formatDate((mock ? c.mock_assessment_date : c.assessment_date) || "") || "—" },
+    { label: mock ? "Mock Date"           : "Assessment Date",    ok: !!(mock ? c.mock_assessment_date : c.assessment_date),  value: fmtDate(mock ? c.mock_assessment_date : c.assessment_date) },
     { label: mock ? "Mock Start Time"     : "Start Time",         ok: !!(mock ? c.mock_assessment_start_time : c.assessment_start_time), value: (mock ? c.mock_assessment_start_time : c.assessment_start_time) || "—" },
     { label: mock ? "Mock End Time"       : "End Time",           ok: !!(mock ? c.mock_assessment_end_time   : c.assessment_end_time),   value: (mock ? c.mock_assessment_end_time   : c.assessment_end_time)   || "—" },
   ];
