@@ -2306,9 +2306,15 @@ window.publishAssessment = (id, target = "main") => {
   const targetLabel = isMock ? "Mock Assessment" : isBoth ? "Mock + Main Assessment" : "Main Assessment";
   const tagPill = `<span style="background:${isMock ? "#ede9fe" : isBoth ? "#fef3c7" : "#dbeafe"};color:${isMock ? "#7c3aed" : isBoth ? "#92400e" : "#1d4ed8"};border-radius:20px;font-size:.72rem;font-weight:700;padding:2px 10px;display:inline-block;margin-left:8px">${targetLabel}</span>`;
 
+  const ddmmyyyy = (str) => {
+    if (!str) return "—";
+    const [y, m, d] = str.split("-");
+    return (y && m && d) ? `${d}-${m}-${y}` : str;
+  };
+
   const buildChecks = (mock) => [
     { label: mock ? "Mock Config Link"    : "Main Config Link",   ok: !!(mock ? c.mock_config_link : c.config_link),          value: (mock ? c.mock_config_link : c.config_link) || "—" },
-    { label: mock ? "Mock Date"           : "Assessment Date",    ok: !!(mock ? c.mock_assessment_date : c.assessment_date),  value: fmtDate(mock ? c.mock_assessment_date : c.assessment_date) },
+    { label: mock ? "Mock Date"           : "Assessment Date",    ok: !!(mock ? c.mock_assessment_date : c.assessment_date),  value: ddmmyyyy(mock ? c.mock_assessment_date : c.assessment_date) },
     { label: mock ? "Mock Start Time"     : "Start Time",         ok: !!(mock ? c.mock_assessment_start_time : c.assessment_start_time), value: (mock ? c.mock_assessment_start_time : c.assessment_start_time) || "—" },
     { label: mock ? "Mock End Time"       : "End Time",           ok: !!(mock ? c.mock_assessment_end_time   : c.assessment_end_time),   value: (mock ? c.mock_assessment_end_time   : c.assessment_end_time)   || "—" },
   ];
