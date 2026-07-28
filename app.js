@@ -2312,11 +2312,16 @@ window.publishAssessment = (id, target = "main") => {
     return (y && m && d) ? `${d}-${m}-${y}` : str;
   };
 
+  const assessTitle = [c.week, c.phase ? "— " + c.phase : "", c.batch || ""].filter(Boolean).join(" ");
+  const examTag = (mock) => genExamTag(c.phase, c.batch, c.week, mock, c.domain, c.p4_sub_type || "weekly");
+
   const buildChecks = (mock) => [
     { label: mock ? "Mock Config Link"    : "Main Config Link",   ok: !!(mock ? c.mock_config_link : c.config_link),          value: (mock ? c.mock_config_link : c.config_link) || "—" },
     { label: mock ? "Mock Date"           : "Assessment Date",    ok: !!(mock ? c.mock_assessment_date : c.assessment_date),  value: ddmmyyyy(mock ? c.mock_assessment_date : c.assessment_date) },
     { label: mock ? "Mock Start Time"     : "Start Time",         ok: !!(mock ? c.mock_assessment_start_time : c.assessment_start_time), value: (mock ? c.mock_assessment_start_time : c.assessment_start_time) || "—" },
     { label: mock ? "Mock End Time"       : "End Time",           ok: !!(mock ? c.mock_assessment_end_time   : c.assessment_end_time),   value: (mock ? c.mock_assessment_end_time   : c.assessment_end_time)   || "—" },
+    { label: "Assessment Title",          ok: !!assessTitle,      value: assessTitle || "—" },
+    { label: mock ? "Mock Exam Tag"       : "Main Exam Tag",      ok: true,             value: examTag(mock) },
   ];
 
   const renderChecks = (checks) => checks.map(ch => `
