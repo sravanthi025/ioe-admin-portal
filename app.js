@@ -2333,20 +2333,32 @@ window.publishAssessment = (id, target = "main") => {
 
   let bodyHTML = `<p style="color:var(--muted);font-size:.84rem;margin-bottom:12px">Marking <strong>${escHtml(c.week)}${c.phase ? " — " + escHtml(c.phase) : ""}${c.batch ? ", " + escHtml(c.batch) : ""}</strong> as published. ${tagPill}</p>`;
 
+  let mainHTML = "", mockHTML = "";
+
   if (isMain || isBoth) {
     const checks = buildChecks(false);
     const allOk  = checks.every(ch => ch.ok);
-    bodyHTML += `${isBoth ? `<div style="font-size:.78rem;font-weight:700;color:#1d4ed8;margin:10px 0 4px">Main Assessment</div>` : ""}
+    mainHTML = `${isBoth ? `<div style="font-size:.78rem;font-weight:700;color:#1d4ed8;margin:10px 0 4px">Main Assessment</div>` : ""}
       <div style="background:#f8fafc;border-radius:8px;padding:0 12px;margin-bottom:${allOk ? "0" : "10px"}">${renderChecks(checks)}</div>
       ${!allOk ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;font-size:.78rem;color:#92400e;margin-bottom:10px">⚠ Some main assessment fields are missing.</div>` : ""}`;
   }
   if (isMock || isBoth) {
     const checks = buildChecks(true);
     const allOk  = checks.every(ch => ch.ok);
-    bodyHTML += `<div style="font-size:.78rem;font-weight:700;color:#7c3aed;margin:10px 0 4px">Mock Assessment</div>
+    mockHTML = `<div style="font-size:.78rem;font-weight:700;color:#7c3aed;margin:10px 0 4px">Mock Assessment</div>
       <div style="background:#f8fafc;border-radius:8px;padding:0 12px;margin-bottom:${allOk ? "0" : "10px"}">${renderChecks(checks)}</div>
       ${!allOk ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;font-size:.78rem;color:#92400e">⚠ Some mock assessment fields are missing.</div>` : ""}`;
   }
+
+  bodyHTML += isBoth
+    ? `<div style="display:flex;gap:20px;align-items:flex-start">
+        <div style="flex:1;min-width:0">${mainHTML}</div>
+        <div style="flex:1;min-width:0">${mockHTML}</div>
+      </div>`
+    : mainHTML + mockHTML;
+
+  const modalEl = document.querySelector("#publish-modal .modal");
+  if (modalEl) { modalEl.style.width = isBoth ? "920px" : "420px"; modalEl.style.maxWidth = isBoth ? "95vw" : "480px"; }
 
   document.getElementById("publish-modal-body").innerHTML = bodyHTML;
   document.getElementById("publish-confirm-btn").onclick = () => confirmPublishAssessment(id, target);
