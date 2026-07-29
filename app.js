@@ -2136,6 +2136,25 @@ function configLinkCell(href) {
     style="color:var(--primary);text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:190px;font-size:.78rem">${escHtml(href)}</a>`;
 }
 
+// After publish, show the real student-facing assessment link instead of the pre-publish config link.
+function publishedLinkCell(c, mock) {
+  const assessLink = mock ? c.mock_topin_assessment_link : c.topin_assessment_link;
+  const cfgLink     = mock ? c.mock_config_link           : c.config_link;
+  if (c.status === "published" && assessLink) {
+    return `<div style="display:flex;flex-direction:column;gap:3px;max-width:190px">
+      <a href="${escHtml(assessLink)}" target="_blank" rel="noopener" title="${escHtml(assessLink)}"
+        style="color:#15803d;font-weight:600;text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem">Assessment Link ↗</a>
+      <button class="btn btn-outline btn-sm" data-link="${escHtml(assessLink)}" onclick="copyPublishedLink(this)" style="font-size:.65rem;padding:1px 7px;align-self:flex-start">Copy</button>
+    </div>`;
+  }
+  return configLinkCell(cfgLink);
+}
+
+window.copyPublishedLink = (btn) => {
+  const link = btn.getAttribute("data-link");
+  navigator.clipboard.writeText(link).then(() => toast("Link copied", "success"));
+};
+
 function configStatusBadge(c) {
   if (c.status === "published") return `<span class="badge badge-published">Live</span>`;
   const hasMain = !!c.config_link;
@@ -2274,8 +2293,8 @@ function renderAssessmentsTable() {
       <td>${i + 1}</td>
       <td>${pbwCell(c.phase, c.batch, c.week)}</td>
       <td>${fmtMockAssessment(c.mock_assessment, c.assessment_date, c.assessment_start_time, c.assessment_end_time, c.mock_assessment_date, c.mock_assessment_start_time, c.mock_assessment_end_time)}</td>
-      <td style="max-width:200px">${configLinkCell(c.config_link)}</td>
-      <td style="max-width:200px">${c.mock_assessment === "required" ? configLinkCell(c.mock_config_link) : '<span style="color:var(--muted);font-size:.78rem">—</span>'}</td>
+      <td style="max-width:200px">${publishedLinkCell(c, false)}</td>
+      <td style="max-width:200px">${c.mock_assessment === "required" ? publishedLinkCell(c, true) : '<span style="color:var(--muted);font-size:.78rem">—</span>'}</td>
       <td>${configStatusBadge(c)}</td>
       <td style="white-space:nowrap">${actions}</td>
     </tr>`;
@@ -5076,10 +5095,13 @@ window.openTopinPublishSetup = async (configId, suggestedTarget = "main") => {
   const titleParts = [c.week, c.phase ? "— " + c.phase : "", c.batch || ""].filter(Boolean).join(" ");
   document.getElementById("tps-title").value = titleParts;
 
-  // Generate tags + PINs
+  // Generate tags + PINs — only needed for SEB (locked-down) assessments
   updateTpsTagPreviews();
-  document.getElementById("tps-main-pin").value = genExitPin();
-  document.getElementById("tps-mock-pin").value = genExitPin();
+  const isSEB = (c.assessment_mode || "SEB_BROWSER") === "SEB_BROWSER";
+  document.getElementById("tps-main-pin-row").style.display = isSEB ? "flex" : "none";
+  document.getElementById("tps-mock-pin-row").style.display = isSEB ? "flex" : "none";
+  document.getElementById("tps-main-pin").value = isSEB ? genExitPin() : "";
+  document.getElementById("tps-mock-pin").value = isSEB ? genExitPin() : "";
 
   // Check token status
   const statusEl = document.getElementById("tps-token-status");

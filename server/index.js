@@ -229,8 +229,8 @@ app.post("/api/publish/run", async (req, res) => {
     isSEB = true, isMock = false,
   } = req.body || {};
 
-  if (!configUrl || !title || !assessmentDate || !startTime || !endTime || !uniqueExamId || !exitPin) {
-    return res.status(400).json({ error: "Missing fields: configUrl, title, assessmentDate, startTime, endTime, uniqueExamId, exitPin" });
+  if (!configUrl || !title || !assessmentDate || !startTime || !endTime || !uniqueExamId || (isSEB && !exitPin)) {
+    return res.status(400).json({ error: "Missing fields: configUrl, title, assessmentDate, startTime, endTime, uniqueExamId" + (isSEB ? ", exitPin" : "") });
   }
 
   // Try to get a valid token (auto-refresh chain)
