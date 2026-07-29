@@ -5177,9 +5177,15 @@ window.publishToTopin = async (configId, target = "main") => {
   const label = target === "both" ? "Mock + Main" : target === "mock" ? "Mock" : "Main";
   openProgressModal(`Publishing ${label} Assessment to Topin`);
 
+  // Only flip status to "published" once we actually have a real assessment link —
+  // never on the bare "published_pending" signal, which just means the Topin API
+  // accepted the request but the assessment hasn't been indexed/found yet.
   const saveToFirestore = async (doneData) => {
     const isMock   = doneData.isMock;
-    const updates  = { status: "published", published_at: serverTimestamp(), published_by: currentUserEmail, invites_sent: false };
+    const hasLink  = !!(doneData.assessmentLink || doneData.manualLink);
+    const updates  = hasLink
+      ? { status: "published", published_at: serverTimestamp(), published_by: currentUserEmail, invites_sent: false }
+      : {};
     if (isMock) {
       if (doneData.assessmentLink || doneData.manualLink) updates.mock_topin_assessment_link    = doneData.assessmentLink || doneData.manualLink;
       if (doneData.publishedAssessId)                     updates.mock_topin_published_assess_id = doneData.publishedAssessId;
@@ -5193,7 +5199,7 @@ window.publishToTopin = async (configId, target = "main") => {
     }
     await updateDoc(doc(db, "configs", configId), updates);
     const idx = allConfigs.findIndex(x => x._id === configId);
-    if (idx >= 0) Object.assign(allConfigs[idx], { ...updates, published_at: new Date() });
+    if (idx >= 0) Object.assign(allConfigs[idx], { ...updates, ...(hasLink ? { published_at: new Date() } : {}) });
     renderAssessmentsTable();
   };
 
@@ -5202,15 +5208,16 @@ window.publishToTopin = async (configId, target = "main") => {
     catch (e) { logProgress("error", "Firestore update failed: " + e.message); }
   };
 
-  // pending_published: assessment published on Topin but link not yet indexed
-  // Save PIN/tag immediately; if user later pastes the link, save that too
+  // pending_published: assessment published on Topin but link not yet indexed.
+  // Save PIN/tag only — status stays as-is until the user pastes the real link
+  // (or a later poll succeeds), so the row doesn't show as "Live" prematurely.
   const onPending = async (doneData) => {
     try {
       await saveToFirestore(doneData);
       if (doneData.manualLink) {
-        logProgress("success", "Assessment link saved to Firestore.");
+        logProgress("success", "Assessment link saved — marked as published.");
       } else {
-        logProgress("info", `PIN and tag saved. Go to Topin dashboard → find "${doneData.uniqueExamId}" → copy the link and paste it above.`);
+        logProgress("info", `PIN and tag saved (not yet marked published). Go to Topin dashboard → find "${doneData.uniqueExamId}" → copy the link and paste it above.`);
       }
     } catch (e) { logProgress("error", "Firestore update failed: " + e.message); }
   };
