@@ -5359,21 +5359,36 @@ async function runTopinPublish(serverUrl, c, target = "main", params = {}) {
   if (!assessDate || !startTime || !endTime) { logProgress("error", `Missing date/time for ${label}`); finishProgress(false, `Set assessment date and times in the config first`); return false; }
 
   logProgress("info", `Submitting ${label} to Topin API...`);
-  try {
-    const resp = await fetch(`${serverUrl}/api/publish/run`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ configUrl, title, assessmentDate: assessDate, startTime, endTime, exitPin, uniqueExamId, isSEB, isMock })
-    });
-    const data = await resp.json();
-    if (data.status === "started") return false;
-    if (data.status === "needs_otp") {
-      logProgress("info", "Topin token expired — OTP login required. Enter mobile number below and click Get OTP.");
-      return true; // caller shows OTP form, re-runs after verify
-    }
-    logProgress("error", data.error || "Unexpected response from server");
-    finishProgress(false, `${label} failed to start`);
-    return false;
-  } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); return false; }
+  const waitStart = Date.now();
+  const maxWaitMs = 150000; // wait up to 2.5 min for a previous job (e.g. Mock, when publishing Both) to finish
+
+  while (true) {
+    try {
+      const resp = await fetch(`${serverUrl}/api/publish/run`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configUrl, title, assessmentDate: assessDate, startTime, endTime, exitPin, uniqueExamId, isSEB, isMock })
+      });
+      const data = await resp.json();
+      if (data.status === "started") return false;
+      if (data.status === "needs_otp") {
+        logProgress("info", "Topin token expired — OTP login required. Enter mobile number below and click Get OTP.");
+        return true; // caller shows OTP form, re-runs after verify
+      }
+      if (resp.status === 409) {
+        if (Date.now() - waitStart > maxWaitMs) {
+          logProgress("error", `${label}: timed out waiting for the previous publish job to finish.`);
+          finishProgress(false, `${label} failed to start`);
+          return false;
+        }
+        logProgress("info", `${label}: another publish job is still running — waiting for it to finish...`);
+        await new Promise(r => setTimeout(r, 4000));
+        continue; // retry
+      }
+      logProgress("error", data.error || "Unexpected response from server");
+      finishProgress(false, `${label} failed to start`);
+      return false;
+    } catch (e) { logProgress("error", e.message); finishProgress(false, "Connection error"); return false; }
+  }
 }
 
 // ── Invite Students via /api/invite Vercel function ───────────
