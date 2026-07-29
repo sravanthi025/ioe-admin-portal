@@ -1906,8 +1906,8 @@
 
     <div id="progress-log" style="background:#0f172a;border-radius:8px;padding:14px;height:220px;overflow-y:auto;font-family:monospace;font-size:.78rem;margin:16px 0;color:#e2e8f0;display:none"></div>
 
-    <!-- Mobile + OTP — always visible, always editable -->
-    <div id="progress-creds-box" style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px">
+    <!-- Mobile + OTP — hidden by default, shown only when a fresh Topin login is actually needed -->
+    <div id="progress-creds-box" style="display:none;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px">
       <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:10px">
         <div>
           <label style="font-size:.73rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">Topin Mobile</label>

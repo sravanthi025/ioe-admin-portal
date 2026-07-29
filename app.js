@@ -4912,6 +4912,7 @@ function openProgressModal(title, { showTargetPicker = false, targetOptions = []
   document.getElementById("progress-result").style.display     = "none";
   document.getElementById("progress-cancel-btn").style.display = "";
   document.getElementById("progress-close-btn").style.display  = "none";
+  document.getElementById("progress-creds-box").style.display  = "none";
   window._otpProceed = null;
 
   // Pre-fill mobile + fixed OTP (if saved in Credentials) as a manual-fallback convenience
@@ -5243,6 +5244,7 @@ window.publishToTopin = async (configId, target = "main") => {
       }
       logProgress("error", "Auto-login with saved credentials failed — falling back to manual entry.");
     }
+    document.getElementById("progress-creds-box").style.display = "";
     setCredsStatus("Enter your Topin mobile number and click Get OTP to log in", "info");
     window._otpProceed = runIt;
   }
