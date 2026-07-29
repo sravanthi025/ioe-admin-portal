@@ -1874,8 +1874,15 @@
         <span id="server-status-txt" style="font-size:.8rem;color:var(--muted)">Not checked</span>
         <button class="btn btn-outline btn-sm" onclick="checkServerHealth()" style="margin-left:auto">Check Connection</button>
       </div>
-      <p style="font-size:.78rem;color:var(--muted);margin-bottom:0;padding:10px 12px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0">
-        Mobile number and OTP are entered directly in the Publish modal when you click Publish on a config row. Mobile is remembered between sessions.
+      <label class="form-label" style="margin-top:14px">Topin Mobile Number</label>
+      <input class="form-input" id="creds-topin-mobile" placeholder="e.g. 9876543210" style="margin-bottom:10px" />
+
+      <label class="form-label">Topin Fixed OTP</label>
+      <input class="form-input" id="creds-topin-otp" placeholder="e.g. 123456" style="margin-bottom:4px" />
+      <p style="font-size:.73rem;color:var(--muted);margin-bottom:12px">
+        Only fill this in if your Topin account is set up with a fixed/static OTP for automation.
+        When saved, publishing will log in automatically using these values instead of prompting for OTP each time.
+        Leave blank to enter mobile/OTP manually in the Publish modal as before.
       </p>
     </div>
 

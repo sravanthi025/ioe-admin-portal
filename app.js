@@ -4866,7 +4866,9 @@ let automationCreds = {};
 let sseSource = null;
 
 window.openCredentialsModal = () => {
-  document.getElementById("creds-server-url").value = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  document.getElementById("creds-server-url").value   = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
+  document.getElementById("creds-topin-mobile").value = localStorage.getItem("topinMobile")    || "";
+  document.getElementById("creds-topin-otp").value    = localStorage.getItem("topinFixedOtp")  || "";
   document.getElementById("creds-modal").classList.add("open");
 };
 
@@ -4878,10 +4880,14 @@ window.switchCredsTab = (tab, btn) => {
 };
 
 window.saveCredentials = async () => {
-  const serverUrl = document.getElementById("creds-server-url").value.trim();
+  const serverUrl    = document.getElementById("creds-server-url").value.trim();
+  const topinMobile  = document.getElementById("creds-topin-mobile").value.trim();
+  const topinFixedOtp = document.getElementById("creds-topin-otp").value.trim();
   if (serverUrl) localStorage.setItem("topinServerUrl", serverUrl);
+  if (topinMobile) localStorage.setItem("topinMobile", topinMobile); else localStorage.removeItem("topinMobile");
+  if (topinFixedOtp) localStorage.setItem("topinFixedOtp", topinFixedOtp); else localStorage.removeItem("topinFixedOtp");
   closeModal("creds-modal");
-  toast("Server URL saved", "success");
+  toast("Credentials saved", "success");
 };
 
 window.checkServerHealth = async () => {
@@ -4908,12 +4914,13 @@ function openProgressModal(title, { showTargetPicker = false, targetOptions = []
   document.getElementById("progress-close-btn").style.display  = "none";
   window._otpProceed = null;
 
-  // Pre-fill mobile from localStorage, clear OTP and status
-  const savedMobile = localStorage.getItem("topinMobile") || "";
+  // Pre-fill mobile + fixed OTP (if saved in Credentials) as a manual-fallback convenience
+  const savedMobile = localStorage.getItem("topinMobile")   || "";
+  const savedOtp     = localStorage.getItem("topinFixedOtp") || "";
   const mobileEl = document.getElementById("progress-mobile-input");
   if (mobileEl && !mobileEl.value) mobileEl.value = savedMobile;
   const otpEl = document.getElementById("progress-otp-input");
-  if (otpEl) otpEl.value = "";
+  if (otpEl) otpEl.value = savedOtp;
   const statusEl = document.getElementById("progress-creds-status");
   if (statusEl) { statusEl.textContent = ""; statusEl.style.color = ""; }
 
@@ -5225,10 +5232,56 @@ window.publishToTopin = async (configId, target = "main") => {
   // Try to run directly — server returns needs_otp if all refresh levels fail
   const needsOtp = await runIt();
   if (needsOtp) {
+    const savedMobile = localStorage.getItem("topinMobile")   || "";
+    const savedOtp     = localStorage.getItem("topinFixedOtp") || "";
+    if (savedMobile && savedOtp) {
+      logProgress("info", `Logging in automatically with saved Topin credentials (${savedMobile})...`);
+      const loggedIn = await autoOtpLogin(serverUrl, savedMobile, savedOtp);
+      if (loggedIn) {
+        await runIt();
+        return;
+      }
+      logProgress("error", "Auto-login with saved credentials failed — falling back to manual entry.");
+    }
     setCredsStatus("Enter your Topin mobile number and click Get OTP to log in", "info");
     window._otpProceed = runIt;
   }
 };
+
+// Auto-login using saved mobile + fixed OTP from Credentials (skips manual prompt)
+async function autoOtpLogin(serverUrl, mobile, otp) {
+  try {
+    const startResp = await fetch(`${serverUrl}/api/publish/start`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mobile })
+    });
+    const startData = await startResp.json();
+    if (startData.status === "already_authenticated") {
+      logProgress("success", "Already logged in.");
+      return true;
+    }
+    if (startData.status !== "otp_sent") {
+      logProgress("error", startData.error || "Failed to start Topin login");
+      return false;
+    }
+
+    logProgress("info", "Verifying with saved OTP...");
+    const verifyResp = await fetch(`${serverUrl}/api/publish/verify-otp`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ otp })
+    });
+    const verifyData = await verifyResp.json();
+    if (verifyData.status === "authenticated") {
+      logProgress("success", "Logged in with saved credentials.");
+      return true;
+    }
+    logProgress("error", verifyData.error || "OTP verification failed");
+    return false;
+  } catch (e) {
+    logProgress("error", "Auto-login failed: " + e.message);
+    return false;
+  }
+}
 
 function setCredsStatus(msg, type = "info") {
   const el = document.getElementById("progress-creds-status");
