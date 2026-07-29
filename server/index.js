@@ -1,11 +1,16 @@
 "use strict";
+const fs           = require("fs");
+const path         = require("path");
 const express      = require("express");
 const cors         = require("cors");
 const { chromium } = require("playwright");
 const topinClient  = require("./topin-client");
+const topinClone   = require("./topin-clone");
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
+const BASE_URL     = "https://config.topin.tech/";
+const SESSION_FILE = path.join(__dirname, "topin-session.json");
 
 app.use(cors({ origin: "*" }));
 app.use(express.json());
@@ -27,15 +32,12 @@ function broadcast(type, message, extra = {}) {
 app.get("/api/health", (_req, res) => res.json({ status: "ok", ts: Date.now() }));
 
 // ── Token status ──────────────────────────────────────────────
+// Publishing now drives the real Topin UI via a saved browser session (cookies),
+// not the JWT token pair. We can only confirm the session file exists here —
+// whether it's still valid is checked for real when a publish actually runs.
 app.get("/api/publish/token-status", (_req, res) => {
-  const t   = topinClient.loadTokens();
-  const now = Date.now();
-  const BUF = 5 * 60 * 1000;
-  const hasTopin = !!(t.topin_access_token && (t.topin_expires_at || 0) - now > BUF);
-  const hasIB    = !!(t.ib_access_token    && (t.ib_expires_at    || 0) - now > BUF);
-  const hasRefresh = !!(t.ib_refresh_token);
-  const expiresIn  = hasTopin ? Math.round(((t.topin_expires_at || 0) - now) / 1000) : 0;
-  res.json({ hasValidToken: hasTopin || hasIB || hasRefresh, hasTopin, hasIB, hasRefresh, expiresIn });
+  const hasSession = fs.existsSync(SESSION_FILE);
+  res.json({ hasValidToken: hasSession, hasTopin: hasSession, hasIB: false, hasRefresh: false, expiresIn: 0 });
 });
 
 // ── SSE stream ────────────────────────────────────────────────
@@ -55,6 +57,30 @@ async function ensureBrowser() {
     browser = await chromium.launch({ headless: process.env.HEADLESS !== "false" });
   }
   return browser;
+}
+
+// Restore the saved Topin browser session (cookies), if any, and confirm it's still
+// logged in. Returns { page, context } or null if there's no session / it expired.
+async function getAuthedPage(onLog = () => {}) {
+  if (!fs.existsSync(SESSION_FILE)) return null;
+  let context;
+  try {
+    const b = await ensureBrowser();
+    context = await b.newContext({ storageState: SESSION_FILE });
+    const page = await context.newPage();
+    await page.goto(BASE_URL, { waitUntil: "domcontentloaded", timeout: 20000 });
+    await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+    if (page.url().includes("accounts.ccbp.in")) {
+      onLog("Saved Topin session has expired.");
+      await context.close().catch(() => {});
+      return null;
+    }
+    return { page, context };
+  } catch (e) {
+    onLog(`Failed to restore saved Topin session: ${e.message}`);
+    await context?.close().catch(() => {});
+    return null;
+  }
 }
 
 // ── Set up network interception to capture IB + Topin tokens ──
@@ -94,6 +120,14 @@ function setupTokenCapture(context) {
 app.post("/api/publish/start", async (req, res) => {
   const { mobile } = req.body || {};
   if (!mobile) return res.status(400).json({ error: "mobile number required" });
+
+  // Skip OTP entirely if the saved session is still valid
+  const existing = await getAuthedPage(msg => broadcast("info", msg));
+  if (existing) {
+    await existing.context.close().catch(() => {});
+    broadcast("info", "Already logged in — saved session is still valid.");
+    return res.json({ status: "already_authenticated" });
+  }
 
   try {
     broadcast("info", "Opening Topin login page...");
@@ -198,7 +232,8 @@ app.post("/api/publish/verify-otp", async (req, res) => {
     // This is reliable even if Topin later redirects the browser back to the login page.
     const captured = topinClient.loadTokens();
     if (captured.topin_access_token || captured.ib_access_token) {
-      broadcast("success", "Logged in — tokens saved for future publishes");
+      await pendingAuthCtx.storageState({ path: SESSION_FILE }).catch(() => {});
+      broadcast("success", "Logged in — session saved for future publishes");
       pendingAuthCtx = null;
       return res.json({ status: "authenticated" });
     }
@@ -209,7 +244,8 @@ app.post("/api/publish/verify-otp", async (req, res) => {
       throw new Error("Still on login page — OTP may be incorrect or expired");
     }
 
-    broadcast("success", "Logged in — tokens saved for future publishes");
+    await pendingAuthCtx.storageState({ path: SESSION_FILE }).catch(() => {});
+    broadcast("success", "Logged in — session saved for future publishes");
     pendingAuthCtx = null;
     res.json({ status: "authenticated" });
   } catch (e) {
@@ -218,7 +254,7 @@ app.post("/api/publish/verify-otp", async (req, res) => {
   }
 });
 
-// ── Step 3: Publish via direct API ───────────────────────────
+// ── Step 3: Publish by cloning the existing config in the real Topin UI ──
 app.post("/api/publish/run", async (req, res) => {
   if (jobRunning) return res.status(409).json({ error: "A publish job is already running" });
 
@@ -233,10 +269,9 @@ app.post("/api/publish/run", async (req, res) => {
     return res.status(400).json({ error: "Missing fields: configUrl, title, assessmentDate, startTime, endTime, uniqueExamId" + (isSEB ? ", exitPin" : "") });
   }
 
-  // Try to get a valid token (auto-refresh chain)
-  const accessToken = await topinClient.getValidTopinToken(broadcast);
-  if (!accessToken) {
-    return res.status(401).json({ status: "needs_otp", error: "No valid Topin token — complete OTP login first" });
+  const authed = await getAuthedPage(msg => broadcast("info", msg));
+  if (!authed) {
+    return res.status(401).json({ status: "needs_otp", error: "No valid Topin session — complete OTP login first" });
   }
 
   // Respond immediately so the browser isn't waiting; publish runs async
@@ -244,64 +279,37 @@ app.post("/api/publish/run", async (req, res) => {
   jobRunning = true; cancelRequested = false;
 
   (async () => {
+    const { page, context } = authed;
     try {
       const label = isMock ? "Mock Assessment" : "Main Assessment";
-      broadcast("info", `Starting direct API publish: ${label}...`);
+      broadcast("info", `Starting clone-based publish: ${label}...`);
 
-      if (cancelRequested) { broadcast("info", "Cancelled"); return; }
-
-      // Get Topin user/org IDs (cached after first call)
-      broadcast("info", "Getting Topin profile...");
-      const { user_id, org_id } = await topinClient.getProfile(accessToken);
-      broadcast("info", `Profile OK — user: ${user_id?.slice(0, 8)}... org: ${org_id?.slice(0, 8)}...`);
-
-      if (cancelRequested) { broadcast("info", "Cancelled"); return; }
-
-      const startDatetime = topinClient.formatDatetime(assessmentDate, startTime);
-      const endDatetime   = topinClient.formatDatetime(assessmentDate, endTime);
-      broadcast("info", `Schedule: ${startDatetime} → ${endDatetime}`);
+      const startDate = topinClone.buildDate(assessmentDate, startTime);
+      const endDate    = topinClone.buildDate(assessmentDate, endTime);
+      broadcast("info", `Schedule: ${startDate.toLocaleString()} → ${endDate.toLocaleString()}`);
       broadcast("info", `Tag: ${uniqueExamId}`);
       broadcast("info", `Mode: ${isSEB ? "SEB Browser" : "Normal Browser"}`);
 
-      // Call Topin publish API
-      broadcast("info", "Calling Topin publish API...");
-      const publishResult = await topinClient.publishAssessment(accessToken, {
-        configUrl, title, startDatetime, endDatetime,
-        exitPin, uniqueExamId, isSEB,
-      });
-      broadcast("info", `Publish API accepted — polling for result... (response: ${JSON.stringify(publishResult).slice(0, 120)})`);
+      const result = await topinClone.cloneAndPublish(page, {
+        sampleConfigLink: configUrl, title, uniqueExamId,
+        startDate, endDate, exitPin, isSEB,
+      }, msg => broadcast("info", msg));
 
-      if (cancelRequested) { broadcast("info", "Cancelled"); return; }
-
-      // Poll GraphQL until assessment appears
-      const row = await topinClient.findPublishedAssessment(
-        accessToken, user_id, org_id, uniqueExamId,
-        (attempt, total) => broadcast("info", `Polling for published assessment (${attempt}/${total})...`)
-      );
-
-      if (!row) {
-        // Publish API accepted but assessment hasn't appeared in GraphQL yet.
-        // Emit partial success so the portal can save PIN/tag and show a manual-link field.
-        broadcast("published_pending", "Publish accepted — link not yet available. Check Topin dashboard and paste the link manually.", {
-          exitPin,
-          uniqueExamId,
-          isMock,
-        });
-        return;
+      if (!result.assessmentLink) {
+        // Clone + publish click succeeded, but the Copy Link button's clipboard read failed
+        // (e.g. headless clipboard permissions). Fall back to the derived view-assessment URL.
+        broadcast("info", "Could not read the link from clipboard — using the config URL as a fallback.");
       }
 
-      const assessmentLink = topinClient.buildAssessmentLink(row.published_assess_id);
       broadcast("done", `${label} published successfully!`, {
-        assessmentLink,
-        assessmentId:       row.id,
-        publishedAssessId:  row.published_assess_id,
-        exitPin,
-        uniqueExamId,
-        isMock,
+        assessmentLink: result.assessmentLink,
+        newConfigLink:  result.newConfigLink,
+        exitPin, uniqueExamId, isMock,
       });
     } catch (e) {
       broadcast("error", `Publish failed: ${e.message}`);
     } finally {
+      await context.close().catch(() => {});
       jobRunning = false;
     }
   })();
