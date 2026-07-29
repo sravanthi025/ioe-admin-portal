@@ -324,9 +324,9 @@ app.post("/api/publish/cancel", (_req, res) => {
 
 app.listen(PORT, () => {
   console.log("─────────────────────────────────────────────");
-  console.log(`  IOE Portal — Topin Direct API Server`);
+  console.log(`  IOE Portal — Topin Clone-Publish Server`);
   console.log(`  Running at: http://localhost:${PORT}`);
   console.log(`  Health:     http://localhost:${PORT}/api/health`);
-  console.log(`  Tokens:     ${require("path").join(__dirname, "topin-tokens.json")}`);
+  console.log(`  Session:    ${SESSION_FILE}`);
   console.log("─────────────────────────────────────────────");
 });
