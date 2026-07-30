@@ -99,14 +99,9 @@ function generateExamTag(phase, batch, week, isMock, domain, p4SubType) {
       : `IO26BM_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${b}_${w}`;
   }
   if (p === "3") {
-    if (d === "JAVA") {
-      return isMock
-        ? `IO26_P3_INTENSIVE_OFFLINE_MOCK_INTERVIEW_JAVA_${b}_${w}`
-        : `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_JAVA_${b}_${w}`;
-    }
     return isMock
-      ? `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_PYTHON_${b}_${w}`
-      : `IO26_P3_INTENSIVE_OFFLINE_MAIN_INTERVIEW_PYTHON_${b}_${w}`;
+      ? `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_${d}_${b}_${w}`
+      : `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_${d}_${b}_${w}`;
   }
   if (p === "4") {
     if (sub === "nxtmock")     return `IO26BM_P4_INTENSIVE_OFFLINE_MOCK_NXTMOCK_${d}_${b}`;

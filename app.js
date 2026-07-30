@@ -5049,8 +5049,9 @@ function genExamTag(phase, batch, week, isMock, domain, p4SubType) {
   if (p === "1") return isMock ? `IO26_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_${b}_${w}` : `IO26_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_${b}_${w}`;
   if (p === "2") return isMock ? `IO26BM_INTENSIVE_OFFLINE_MOCK_NXTMOCK_${b}_${w}` : `IO26BM_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${b}_${w}`;
   if (p === "3") {
-    if (d === "JAVA") return isMock ? `IO26_P3_INTENSIVE_OFFLINE_MOCK_INTERVIEW_JAVA_${b}_${w}` : `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_JAVA_${b}_${w}`;
-    return isMock ? `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_PYTHON_${b}_${w}` : `IO26_P3_INTENSIVE_OFFLINE_MAIN_INTERVIEW_PYTHON_${b}_${w}`;
+    return isMock
+      ? `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_${d}_${b}_${w}`
+      : `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_${d}_${b}_${w}`;
   }
   if (p === "4") {
     if (sub === "nxtmock")     return `IO26BM_P4_INTENSIVE_OFFLINE_MOCK_NXTMOCK_${d}_${b}`;
@@ -5103,9 +5104,10 @@ window.openTopinPublishSetup = async (configId, suggestedTarget = "main") => {
     targetEl.value = suggestedTarget;
   }
 
-  // Default title suggestion
-  const titleParts = [c.week, c.phase ? "— " + c.phase : "", c.batch || ""].filter(Boolean).join(" ");
-  document.getElementById("tps-title").value = titleParts;
+  // Default title suggestion — matches the same phase-aware title/tag scheme
+  // already used as the reference on the Assessment Details page.
+  const assessInfo = generateAssessmentInfo(c.phase, c.batch, c.week, c.domain);
+  document.getElementById("tps-title").value = assessInfo.mainTitle;
 
   // Generate tags + PINs — only needed for SEB (locked-down) assessments
   updateTpsTagPreviews();
@@ -5361,7 +5363,11 @@ async function runTopinPublish(serverUrl, c, target = "main", params = {}) {
   const isMock      = target === "mock";
   const label       = isMock ? "Mock Assessment" : "Main Assessment";
   const configUrl   = isMock ? (c.mock_config_link || "") : (c.config_link || "");
-  const title       = isMock ? `[MOCK] ${params.title || ""}` : (params.title || "");
+  // Mock always gets its own freshly-generated title (matching the phase's naming scheme),
+  // not a "[MOCK] " prefix stuck onto whatever the user typed/edited for Main.
+  const title       = isMock
+    ? generateAssessmentInfo(c.phase, c.batch, c.week, c.domain).mockTitle
+    : (params.title || "");
   const uniqueExamId = isMock ? (params.mockTag || "") : (params.mainTag || "");
   const exitPin     = isMock ? (params.mockPin || "") : (params.mainPin || "");
   const isSEB       = (c.assessment_mode || "SEB_BROWSER") === "SEB_BROWSER";
