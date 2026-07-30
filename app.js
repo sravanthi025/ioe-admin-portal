@@ -2350,8 +2350,8 @@ window.publishAssessment = (id, target = "main") => {
   const renderChecks = (checks) => checks.map(ch => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;background:${ch.ok ? "#dcfce7" : "#fee2e2"};color:${ch.ok ? "#15803d" : "#dc2626"}">${ch.ok ? "✓" : "✗"}</span>
-      <div><div style="font-size:.82rem;font-weight:600;color:var(--text)">${ch.label}</div>
-      <div style="font-size:.73rem;color:var(--muted)">${escHtml(String(ch.value))}</div></div>
+      <div style="flex:1;min-width:0"><div style="font-size:.82rem;font-weight:600;color:var(--text)">${ch.label}</div>
+      <div style="font-size:.73rem;color:var(--muted);word-break:break-all">${escHtml(String(ch.value))}</div></div>
     </div>`).join("");
 
   let bodyHTML = `<p style="color:var(--muted);font-size:.84rem;margin-bottom:12px">Marking <strong>${escHtml(c.week)}${c.phase ? " — " + escHtml(c.phase) : ""}${c.batch ? ", " + escHtml(c.batch) : ""}</strong> as published. ${tagPill}</p>`;
