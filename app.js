@@ -2136,12 +2136,16 @@ function configLinkCell(href) {
     style="color:var(--primary);text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:190px;font-size:.78rem">${escHtml(href)}</a>`;
 }
 
-// After publish, show the real student-facing assessment link instead of the pre-publish config link.
+// c.config_link / c.mock_config_link get overwritten with the newly-cloned config's link
+// as soon as a publish succeeds (see saveToFirestore), so this always shows the config
+// link for whichever assessment currently exists — never the stale pre-clone template link.
+// Once published, also surface the real student-facing assessment link underneath it.
 function publishedLinkCell(c, mock) {
-  const assessLink = mock ? c.mock_topin_assessment_link : c.topin_assessment_link;
   const cfgLink     = mock ? c.mock_config_link           : c.config_link;
+  const assessLink  = mock ? c.mock_topin_assessment_link : c.topin_assessment_link;
   if (c.status === "published" && assessLink) {
     return `<div style="display:flex;flex-direction:column;gap:3px;max-width:190px">
+      ${configLinkCell(cfgLink)}
       <a href="${escHtml(assessLink)}" target="_blank" rel="noopener" title="${escHtml(assessLink)}"
         style="color:#15803d;font-weight:600;text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem">Assessment Link ↗</a>
       <button class="btn btn-outline btn-sm" data-link="${escHtml(assessLink)}" onclick="copyPublishedLink(this)" style="font-size:.65rem;padding:1px 7px;align-self:flex-start">Copy</button>
@@ -5188,11 +5192,14 @@ window.publishToTopin = async (configId, target = "main") => {
       : {};
     if (isMock) {
       if (doneData.assessmentLink || doneData.manualLink) updates.mock_topin_assessment_link    = doneData.assessmentLink || doneData.manualLink;
+      // Cloning creates a brand-new config — replace the stale template link with it.
+      if (doneData.newConfigLink)                         updates.mock_config_link               = doneData.newConfigLink;
       if (doneData.publishedAssessId)                     updates.mock_topin_published_assess_id = doneData.publishedAssessId;
       if (doneData.exitPin)                               updates.mock_exit_pin                  = doneData.exitPin;
       if (doneData.uniqueExamId)                          updates.mock_unique_exam_id            = doneData.uniqueExamId;
     } else {
       if (doneData.assessmentLink || doneData.manualLink) updates.topin_assessment_link        = doneData.assessmentLink || doneData.manualLink;
+      if (doneData.newConfigLink)                         updates.config_link                  = doneData.newConfigLink;
       if (doneData.publishedAssessId)                     updates.topin_published_assess_id   = doneData.publishedAssessId;
       if (doneData.exitPin)                               updates.exit_pin                     = doneData.exitPin;
       if (doneData.uniqueExamId)                          updates.unique_exam_id               = doneData.uniqueExamId;
