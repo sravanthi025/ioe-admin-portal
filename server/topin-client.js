@@ -95,7 +95,7 @@ function generateExamTag(phase, batch, week, isMock, domain, p4SubType) {
   }
   if (p === "2") {
     return isMock
-      ? `IO26BM_INTENSIVE_OFFLINE_MOCK_NXTMOCK_${b}_${w}`
+      ? `IO26BM_INTENSIVE_OFFLINE_MOCK_ASSESSMENT_${b}_${w}`
       : `IO26BM_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${b}_${w}`;
   }
   if (p === "3") {

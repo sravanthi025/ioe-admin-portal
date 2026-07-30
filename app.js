@@ -2958,6 +2958,7 @@ function generateAssessmentInfo(phase, batch, week, domain) {
   const bN  = (batch || "").replace(/[^0-9]/g, "");
   const wN  = (week  || "").replace(/[^0-9]/g, "");
   const sfx = [bN ? `B${bN}` : "", wN ? `W${wN}` : ""].filter(Boolean).join("_");
+  const bOnly = bN ? `B${bN}` : "";
   const wLabel = wN || "?";
 
   if (phN === 2) {
@@ -2969,6 +2970,11 @@ function generateAssessmentInfo(phase, batch, week, domain) {
       mockPrefix:  "IO26BM_INTENSIVE_OFFLINE_MOCK_ASSESSMENT",
       mainPrefix:  "IO26BM_INTENSIVE_OFFLINE_MAIN_ASSESSMENT",
       needsDomain: false,
+      // NxtMock TR1/TR2 — separate AI-interview artifact, tagged by batch only (no week)
+      tr1Title:    `Benchmarking | TR1 AI Interview | Week ${wLabel}`,
+      tr1Tag:      `IO26BM_INTENSIVE_OFFLINE_MAIN_NXTMOCK_TR1${bOnly ? "_"+bOnly : ""}`,
+      tr2Title:    `Benchmarking | TR2 AI Interview | Week ${wLabel}`,
+      tr2Tag:      `IO26BM_INTENSIVE_OFFLINE_MAIN_NXTMOCK_TR2${bOnly ? "_"+bOnly : ""}`,
     };
   }
   if (phN === 3) {
@@ -2984,9 +2990,34 @@ function generateAssessmentInfo(phase, batch, week, domain) {
       mainPrefix:  `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_${domUpper}`,
       needsDomain: true,
       domain:      domTitle,
+      // Separate Interview track (own schedule/tag alongside the Assessment)
+      mockInterviewTitle: `${domTitle} Weekly Skill Mock Interview ${wLabel}`,
+      mockInterviewTag:   `IO26_P3_INTENSIVE_OFFLINE_MOCK_INTERVIEW_${domUpper}${sfx ? "_"+sfx : ""}`,
+      mainInterviewTitle: `${domTitle} Weekly Skill Main Interview ${wLabel}`,
+      mainInterviewTag:   `IO26_P3_INTENSIVE_OFFLINE_MAIN_INTERVIEW_${domUpper}${sfx ? "_"+sfx : ""}`,
     };
   }
-  // Phase 1 (and 4/5/6 default) → weekly format
+  if (phN === 4) {
+    const dom      = (domain || "Python").trim();
+    const domUpper = dom.toUpperCase();
+    const domTitle = dom.charAt(0).toUpperCase() + dom.slice(1).toLowerCase();
+    return {
+      mockTitle:   `${domTitle} Benchmarking | Mock Assessment | Week ${wLabel}`,
+      mainTitle:   `${domTitle} Benchmarking | Main Assessment | Week ${wLabel}`,
+      mockTag:     `IO26BM_P4_INTENSIVE_OFFLINE_MOCK_ASSESSMENT_${domUpper}${sfx ? "_"+sfx : ""}`,
+      mainTag:     `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${domUpper}${sfx ? "_"+sfx : ""}`,
+      mockPrefix:  `IO26BM_P4_INTENSIVE_OFFLINE_MOCK_ASSESSMENT_${domUpper}`,
+      mainPrefix:  `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${domUpper}`,
+      needsDomain: true,
+      domain:      domTitle,
+      // NxtMock TR1/TR2 — tagged by domain + batch only (no week)
+      tr1Title:    `${domTitle} Benchmarking | TR1 AI Interview | Week ${wLabel}`,
+      tr1Tag:      `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_NXTMOCK_${domUpper}_TR1${bOnly ? "_"+bOnly : ""}`,
+      tr2Title:    `${domTitle} Benchmarking | TR2 AI Interview | Week ${wLabel}`,
+      tr2Tag:      `IO26BM_P4_INTENSIVE_OFFLINE_MAIN_NXTMOCK_${domUpper}_TR2${bOnly ? "_"+bOnly : ""}`,
+    };
+  }
+  // Phase 1 (and 5/6 default) → weekly format
   return {
     mockTitle:   `Mock Assessment Week-${wLabel}`,
     mainTitle:   `Weekly Skill Assessment-${wLabel}`,
@@ -2995,6 +3026,11 @@ function generateAssessmentInfo(phase, batch, week, domain) {
     mockPrefix:  "IO26_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT",
     mainPrefix:  "IO26_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT",
     needsDomain: false,
+    // Separate Interview track (own schedule/tag alongside the Assessment)
+    mockInterviewTitle: `Weekly Mock Interview - ${wLabel}`,
+    mockInterviewTag:   `IO26_INTENSIVE_OFFLINE_MOCK_INTERVIEW${sfx ? "_"+sfx : ""}`,
+    mainInterviewTitle: `Weekly Skill Interview-${wLabel}`,
+    mainInterviewTag:   `IO26_INTENSIVE_OFFLINE_MAIN_INTERVIEW${sfx ? "_"+sfx : ""}`,
   };
 }
 
@@ -3049,6 +3085,10 @@ function buildADDetailPanelHTML(c) {
     <div class="ad-dp-blocks">
       ${hasMock ? assessBlock("Mock Assessment", info.mockTitle, info.mockTag) : ""}
       ${assessBlock("Main Assessment", info.mainTitle, info.mainTag)}
+      ${hasMock && info.mockInterviewTitle ? assessBlock("Mock Interview", info.mockInterviewTitle, info.mockInterviewTag) : ""}
+      ${info.mainInterviewTitle ? assessBlock("Main Interview", info.mainInterviewTitle, info.mainInterviewTag) : ""}
+      ${info.tr1Title ? assessBlock("NxtMock TR-1 (AI Interview)", info.tr1Title, info.tr1Tag) : ""}
+      ${info.tr2Title ? assessBlock("NxtMock TR-2 (AI Interview)", info.tr2Title, info.tr2Tag) : ""}
     </div>
     ${navSection}
   </div>`;
@@ -5047,7 +5087,7 @@ function genExamTag(phase, batch, week, isMock, domain, p4SubType) {
   const d   = dRaw.includes("JAVA") ? "JAVA" : "PYTHON";
   const sub = (p4SubType || "weekly").toLowerCase();
   if (p === "1") return isMock ? `IO26_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_${b}_${w}` : `IO26_INTENSIVE_OFFLINE_WEEKLY_MAIN_ASSESSMENT_${b}_${w}`;
-  if (p === "2") return isMock ? `IO26BM_INTENSIVE_OFFLINE_MOCK_NXTMOCK_${b}_${w}` : `IO26BM_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${b}_${w}`;
+  if (p === "2") return isMock ? `IO26BM_INTENSIVE_OFFLINE_MOCK_ASSESSMENT_${b}_${w}` : `IO26BM_INTENSIVE_OFFLINE_MAIN_ASSESSMENT_${b}_${w}`;
   if (p === "3") {
     return isMock
       ? `IO26_P3_INTENSIVE_OFFLINE_WEEKLY_MOCK_ASSESSMENT_${d}_${b}_${w}`
