@@ -127,7 +127,7 @@ Users register via the portal and are approved/rejected by Admin. Role is stored
 | **Admin** | All pages | Full CRUD everywhere, approve/reject team members, delete records, manage SLA settings |
 | **Content Team** | Syllabus, Configs, Assignments | Add/edit syllabus, submit Topin config links, edit assignment links |
 | **Assessment Ops Team** | Students, Assessments, Assessment Details, Assignments | Upload students, publish assessments, allocate students to assignments, download CSV |
-| **On Ground Team** | Students, Assignments | Download allocation CSV for on-ground distribution |
+| **Invigilator** | Students, Assignments | Download allocation CSV for on-ground distribution |
 | **Instructor** | Assignments | Evaluate students, view/import submission links |
 | **Guest** | Read-only everything | No login required — anonymous Firebase auth via "Continue as Guest" |
 
