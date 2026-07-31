@@ -294,13 +294,30 @@ async function publishAssessment(page, accessType) {
   const copyLinkButton = page.getByRole("button", { name: "Copy Link" });
   await copyLinkButton.waitFor({ timeout: 60000 });
 
+  // The invite API needs org_id from this link, so try hard to capture it —
+  // clipboard read fails silently in some headless setups, so fall back to
+  // scanning the page DOM for it before giving up.
   try {
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE_URL });
     await copyLinkButton.click();
-    const link = await page.evaluate(async () => navigator.clipboard.readText());
-    if (link) return link.trim();
-  } catch { /* fall through to derived link */ }
-  return "";
+    const clip = await page.evaluate(async () => navigator.clipboard.readText());
+    if (clip && clip.includes("org_id=")) return clip.trim();
+  } catch { /* fall through to DOM scan */ }
+
+  const scanned = await page.evaluate(() => {
+    for (const el of document.querySelectorAll("input")) {
+      if (el.value && el.value.includes("org_id=")) return el.value;
+    }
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const t = (node.textContent || "").trim();
+      if (t.includes("org_id=") && t.includes("assessment.topin.tech")) return t;
+    }
+    return "";
+  }).catch(() => "");
+
+  return scanned || "";
 }
 
 // ── Main entry point ────────────────────────────────────────────

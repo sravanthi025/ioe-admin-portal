@@ -5480,14 +5480,30 @@ async function runTopinPublish(serverUrl, c, target = "main", params = {}) {
 }
 
 // ── Invite Students via /api/invite Vercel function ───────────
+// Pulls org_id out of a published assessment.topin.tech link — that's the
+// ID the invite API actually expects, distinct from the config's own UUID.
+function extractOrgId(link) {
+  if (!link) return "";
+  try {
+    const u = new URL(link);
+    return u.searchParams.get("org_id") || "";
+  } catch {
+    return (String(link).match(/org_id=([0-9a-f-]{36})/i) || [])[1] || "";
+  }
+}
+
 window.inviteStudents = async (configId) => {
   const c = allConfigs.find(x => x._id === configId);
   if (!c) return;
 
-  // Use stored published assessment ID, falling back to UUID in config URL
-  const publishedAssessId = c.topin_published_assess_id || "";
-  const uuidFromUrl       = (c.config_link || "").match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] || "";
-  const assessmentId      = publishedAssessId || uuidFromUrl;
+  // The invite API needs the *published assessment's* org_id (from the
+  // assessment.topin.tech link captured at publish time) — this is a
+  // different Topin entity than the config UUID in config_link, and using
+  // the config UUID sends invites to the wrong (or a nonexistent) assessment.
+  const assessmentId = extractOrgId(c.topin_assessment_link)
+    || c.topin_published_assess_id
+    || (c.config_link || "").match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0]
+    || "";
   if (!assessmentId) { toast("No assessment ID found. Publish to Topin first.", "error"); return; }
 
   openProgressModal("Inviting Students");
