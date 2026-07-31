@@ -5047,13 +5047,6 @@ window.cancelAutomation = async () => {
   closeModal("progress-modal");
 };
 
-// ── Client-side tag + PIN generation (mirrors server/topin-client.js) ─
-const PIN_CHARS = "ACDEFGHJKLMNPQRTUVWXYZ23456789";
-function genExitPin(len = 6) {
-  let pin = "";
-  for (let i = 0; i < len; i++) pin += PIN_CHARS[Math.floor(Math.random() * PIN_CHARS.length)];
-  return pin;
-}
 function genExamTag(phase, batch, week, isMock, domain, p4SubType) {
   const p   = String(phase  || "").replace(/^P/i,"").replace(/\D/g,"");
   const b   = "B" + String(batch  || "").replace(/^B/i,"").replace(/\D/g,"");
@@ -5124,13 +5117,10 @@ window.openTopinPublishSetup = async (configId, suggestedTarget = "main") => {
   const assessInfo = generateAssessmentInfo(c.phase, c.batch, c.week, c.domain);
   document.getElementById("tps-title").value = assessInfo.mainTitle;
 
-  // Generate tags + PINs — only needed for SEB (locked-down) assessments
+  // Generate tag previews — exit PIN is left untouched during publish
+  // (clone keeps whatever PIN the sample config already has), so no
+  // PIN generation/UI is needed here anymore.
   updateTpsTagPreviews();
-  const isSEB = (c.assessment_mode || "SEB_BROWSER") === "SEB_BROWSER";
-  document.getElementById("tps-main-pin-row").style.display = isSEB ? "flex" : "none";
-  document.getElementById("tps-mock-pin-row").style.display = isSEB ? "flex" : "none";
-  document.getElementById("tps-main-pin").value = isSEB ? genExitPin() : "";
-  document.getElementById("tps-mock-pin").value = isSEB ? genExitPin() : "";
 
   // Check token status
   const statusEl = document.getElementById("tps-token-status");
@@ -5167,9 +5157,6 @@ window.updateTpsTagPreviews = () => {
   document.getElementById("tps-mock-tag").value = mockTag;
 };
 
-window.regenMainPin = () => { document.getElementById("tps-main-pin").value = genExitPin(); };
-window.regenMockPin = () => { document.getElementById("tps-mock-pin").value = genExitPin(); };
-
 window.confirmTopinPublish = async () => {
   const title = document.getElementById("tps-title").value.trim();
   if (!title) { toast("Assessment title is required", "error"); return; }
@@ -5178,13 +5165,11 @@ window.confirmTopinPublish = async () => {
   const p4SubType = document.getElementById("tps-p4-subtype")?.value || "weekly";
   const mainTag   = document.getElementById("tps-main-tag").value;
   const mockTag   = document.getElementById("tps-mock-tag").value;
-  const mainPin   = document.getElementById("tps-main-pin").value;
-  const mockPin   = document.getElementById("tps-mock-pin").value;
 
   closeModal("topin-publish-setup-modal");
 
   // Store publish params for use in the run function
-  window._tpsPublishParams = { title, target, p4SubType, mainTag, mockTag, mainPin, mockPin };
+  window._tpsPublishParams = { title, target, p4SubType, mainTag, mockTag };
   await publishToTopin(_tpsConfigId, target);
 };
 
@@ -5216,13 +5201,11 @@ window.publishToTopin = async (configId, target = "main") => {
       // Cloning creates a brand-new config — replace the stale template link with it.
       if (doneData.newConfigLink)                         updates.mock_config_link               = doneData.newConfigLink;
       if (doneData.publishedAssessId)                     updates.mock_topin_published_assess_id = doneData.publishedAssessId;
-      if (doneData.exitPin)                               updates.mock_exit_pin                  = doneData.exitPin;
       if (doneData.uniqueExamId)                          updates.mock_unique_exam_id            = doneData.uniqueExamId;
     } else {
       if (doneData.assessmentLink || doneData.manualLink) updates.topin_assessment_link        = doneData.assessmentLink || doneData.manualLink;
       if (doneData.newConfigLink)                         updates.config_link                  = doneData.newConfigLink;
       if (doneData.publishedAssessId)                     updates.topin_published_assess_id   = doneData.publishedAssessId;
-      if (doneData.exitPin)                               updates.exit_pin                     = doneData.exitPin;
       if (doneData.uniqueExamId)                          updates.unique_exam_id               = doneData.uniqueExamId;
     }
     await updateDoc(doc(db, "configs", configId), updates);
@@ -5396,7 +5379,6 @@ async function runTopinPublish(serverUrl, c, target = "main", params = {}) {
     ? generateAssessmentInfo(c.phase, c.batch, c.week, c.domain).mockTitle
     : (params.title || "");
   const uniqueExamId = isMock ? (params.mockTag || "") : (params.mainTag || "");
-  const exitPin     = isMock ? (params.mockPin || "") : (params.mainPin || "");
   const isSEB       = (c.assessment_mode || "SEB_BROWSER") === "SEB_BROWSER";
   const assessDate  = isMock ? (c.mock_assessment_date || c.assessment_date || "") : (c.assessment_date || "");
   const startTime   = isMock ? (c.mock_assessment_start_time || c.assessment_start_time || "") : (c.assessment_start_time || "");
@@ -5413,7 +5395,7 @@ async function runTopinPublish(serverUrl, c, target = "main", params = {}) {
     try {
       const resp = await fetch(`${serverUrl}/api/publish/run`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ configUrl, title, assessmentDate: assessDate, startTime, endTime, exitPin, uniqueExamId, isSEB, isMock })
+        body: JSON.stringify({ configUrl, title, assessmentDate: assessDate, startTime, endTime, uniqueExamId, isSEB, isMock })
       });
       const data = await resp.json();
       if (data.status === "started") return false;

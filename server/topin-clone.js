@@ -210,22 +210,6 @@ async function ensureInternalAdminOpen(page) {
   }
 }
 
-async function setExitPin(page, exitPin) {
-  await ensureInternalAdminOpen(page);
-  const secureContainer = page.locator('[data-testid="ao-exam-environment-option"]');
-  const exitInput = secureContainer.locator('input[placeholder="Custom Exit Password (if any)"]');
-
-  if (!(await exitInput.isVisible().catch(() => false))) {
-    await secureContainer.getByRole("button", { name: "Enable Secure Browser" }).click();
-  }
-  const yesRadio = secureContainer.locator('input[data-testid="Yes"]').first();
-  if ((await yesRadio.count()) && !(await yesRadio.isChecked().catch(() => false))) {
-    await secureContainer.locator("span", { hasText: "Yes" }).first().click();
-  }
-  await exitInput.fill("");
-  await exitInput.fill(exitPin);
-}
-
 async function ensureRadioOptionSelected(container, testId) {
   const option = container.locator(`input[data-testid="${testId}"]`).first();
   await option.waitFor({ state: "attached", timeout: 10000 });
@@ -322,7 +306,7 @@ async function publishAssessment(page, accessType) {
 
 // ── Main entry point ────────────────────────────────────────────
 async function cloneAndPublish(page, opts, onLog = () => {}) {
-  const { sampleConfigLink, title, uniqueExamId, startDate, endDate, exitPin, isSEB } = opts;
+  const { sampleConfigLink, title, uniqueExamId, startDate, endDate } = opts;
 
   const sample = await openSampleAndReadMetadata(page, sampleConfigLink, onLog);
 
@@ -341,10 +325,8 @@ async function cloneAndPublish(page, opts, onLog = () => {}) {
   onLog("Setting end date & time...");
   await setDateTimeField(page, "bscd-end-date-time-input", endDate);
 
-  if (isSEB && exitPin) {
-    onLog("Setting exit PIN...");
-    await setExitPin(page, exitPin);
-  }
+  // Exit PIN is intentionally left untouched — keep whatever the cloned
+  // sample config already has instead of generating/setting a new one.
   onLog("Confirming QR attendance / exam PIN mode...");
   await setQrBasedAttendanceMode(page);
   await setExamPinMode(page);

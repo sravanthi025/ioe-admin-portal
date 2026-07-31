@@ -261,12 +261,12 @@ app.post("/api/publish/run", async (req, res) => {
   const {
     configUrl, title,
     assessmentDate, startTime, endTime,
-    exitPin, uniqueExamId,
+    uniqueExamId,
     isSEB = true, isMock = false,
   } = req.body || {};
 
-  if (!configUrl || !title || !assessmentDate || !startTime || !endTime || !uniqueExamId || (isSEB && !exitPin)) {
-    return res.status(400).json({ error: "Missing fields: configUrl, title, assessmentDate, startTime, endTime, uniqueExamId" + (isSEB ? ", exitPin" : "") });
+  if (!configUrl || !title || !assessmentDate || !startTime || !endTime || !uniqueExamId) {
+    return res.status(400).json({ error: "Missing fields: configUrl, title, assessmentDate, startTime, endTime, uniqueExamId" });
   }
 
   const authed = await getAuthedPage(msg => broadcast("info", msg));
@@ -292,7 +292,7 @@ app.post("/api/publish/run", async (req, res) => {
 
       const result = await topinClone.cloneAndPublish(page, {
         sampleConfigLink: configUrl, title, uniqueExamId,
-        startDate, endDate, exitPin, isSEB,
+        startDate, endDate,
       }, msg => broadcast("info", msg));
 
       if (!result.assessmentLink) {
@@ -304,7 +304,7 @@ app.post("/api/publish/run", async (req, res) => {
       broadcast("done", `${label} published successfully!`, {
         assessmentLink: result.assessmentLink,
         newConfigLink:  result.newConfigLink,
-        exitPin, uniqueExamId, isMock,
+        uniqueExamId, isMock,
       });
     } catch (e) {
       broadcast("error", `Publish failed: ${e.message}`);
