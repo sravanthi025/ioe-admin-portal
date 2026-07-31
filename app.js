@@ -2161,14 +2161,24 @@ function configLinkCell(href) {
 // as soon as a publish succeeds (see saveToFirestore), so this always shows the config
 // link for whichever assessment currently exists — never the stale pre-clone template link.
 // Once published, also surface the real student-facing assessment link underneath it.
+// Same UUID as the config link, just view-assessment → view-details
+// (mirrors: ="https://config.topin.tech/view-details/" & REGEXEXTRACT(link, "[^/]+$"))
+function deriveDetailsLink(configLink) {
+  const uuid = (String(configLink || "").match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [])[0];
+  return uuid ? `https://config.topin.tech/view-details/${uuid}` : "";
+}
+
 function publishedLinkCell(c, mock) {
   const cfgLink     = mock ? c.mock_config_link           : c.config_link;
   const assessLink  = mock ? c.mock_topin_assessment_link : c.topin_assessment_link;
   if (c.status === "published" && assessLink) {
+    const detailsLink = deriveDetailsLink(cfgLink);
     return `<div style="display:flex;flex-direction:column;gap:3px;max-width:190px">
       ${configLinkCell(cfgLink)}
       <a href="${escHtml(assessLink)}" target="_blank" rel="noopener" title="${escHtml(assessLink)}"
         style="color:#15803d;font-weight:600;text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem">Assessment Link ↗</a>
+      ${detailsLink ? `<a href="${escHtml(detailsLink)}" target="_blank" rel="noopener" title="${escHtml(detailsLink)}"
+        style="color:#0369a1;font-weight:600;text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem">Details Link ↗</a>` : ""}
       <button class="btn btn-outline btn-sm" data-link="${escHtml(assessLink)}" onclick="copyPublishedLink(this)" style="font-size:.65rem;padding:1px 7px;align-self:flex-start">Copy</button>
     </div>`;
   }
