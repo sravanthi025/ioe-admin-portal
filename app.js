@@ -566,7 +566,13 @@ window.confirmDeleteStudent = (id, name) => {
   document.getElementById("delete-modal").classList.add("open");
 };
 
-window.closeModal = (id) => document.getElementById(id).classList.remove("open");
+window.closeModal = (id) => {
+  document.getElementById(id).classList.remove("open");
+  if (id === "progress-modal" && window._activePublishConfigId) {
+    window._activePublishConfigId = null;
+    renderAssessmentsTable();
+  }
+};
 
 window.exportStudentsCSV = () => {
   const rows = [["UID", "Phase", "Batch", "Name", "Email", "Student ID", "Contact Number", "Assessment Date"]];
@@ -2260,7 +2266,11 @@ function renderAssessmentsTable() {
           ? `${publishedInfo}${inviteChip}`
           : `<span style="font-size:.75rem;color:var(--muted)">${c.status === "submitted" ? "Ready to publish" : "—"}</span>`)
       : c.status === "submitted"
-        ? `<div style="position:relative;display:inline-block">
+        ? (window._activePublishConfigId === c._id
+        ? `<button class="btn btn-outline btn-sm" disabled style="display:flex;align-items:center;gap:6px;opacity:.7;cursor:not-allowed">
+            <span class="spinner" style="width:12px;height:12px"></span> Publishing…
+          </button>`
+        : `<div style="position:relative;display:inline-block">
             <button class="btn btn-primary btn-sm" onclick="togglePubDropdown('${c._id}')" style="display:flex;align-items:center;gap:8px">
               Publish
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -2279,7 +2289,7 @@ function renderAssessmentsTable() {
                 <span>Both</span><span style="font-size:.65rem;font-weight:700;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px">BOTH</span>
               </button>` : ""}
             </div>
-          </div>`
+          </div>`)
         : c.status === "published"
         ? `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
             ${publishedInfo}
@@ -2319,6 +2329,12 @@ window.togglePubDropdown = (id) => {
 };
 
 window.publishAssessment = (id, target = "main") => {
+  if (window._activePublishConfigId) {
+    toast(window._activePublishConfigId === id
+      ? "This row is already being published — wait for it to finish."
+      : "Another publish is already in progress — wait for it to finish before starting another.", "error");
+    return;
+  }
   const c = allConfigs.find(x => x._id === id);
   if (!c) return;
 
@@ -5217,6 +5233,10 @@ window.confirmTopinPublish = async () => {
 window.publishToTopin = async (configId, target = "main") => {
   const c = allConfigs.find(x => x._id === configId);
   if (!c) return;
+  // Block any other publish (this row or another) from starting until this one
+  // is fully done — cleared when the progress modal closes (see closeModal).
+  window._activePublishConfigId = configId;
+  renderAssessmentsTable();
   const serverUrl = localStorage.getItem("topinServerUrl") || "http://localhost:3001";
   const params    = window._tpsPublishParams || {};
 
