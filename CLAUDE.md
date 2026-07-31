@@ -24,7 +24,6 @@ The **Intensive Offline Evaluation (IOE) Admin Portal** is an internal web tool 
 | Admin SDK | Firebase Admin SDK (only inside Vercel functions, for IC Firebase access) |
 | Local Automation | Express + Playwright (in `server/`, runs on the user's machine, never deployed) |
 | Email alerts | EmailJS (SLA breach notifications) |
-| Teams alerts | Microsoft Teams incoming webhook |
 
 **No build tool, no bundler, no framework.** Everything runs directly in the browser as ES modules. Firebase SDK is loaded from `https://www.gstatic.com/firebasejs/10.12.2/`.
 
@@ -44,7 +43,6 @@ ioe-admin-portal/
 │
 ├── api/                        # Vercel serverless functions (deployed automatically on git push)
 │   ├── invite.js               # POST /api/invite — proxies student invitations to external API
-│   ├── teams-notify.js         # POST /api/teams-notify — posts SLA alerts to MS Teams channel
 │   ├── ic-interviews.js        # GET /api/ic-interviews — reads interview data from IC Firebase
 │   └── ic-request.js           # POST /api/ic-request — writes interview requests to IC Firebase
 │
@@ -83,7 +81,6 @@ Since there's no build step, you can open `index.html` directly. But `firebase-c
 
 | Variable | Used By | Purpose |
 |---|---|---|
-| `TEAMS_WEBHOOK_URL` | `api/teams-notify.js` | Microsoft Teams incoming webhook URL for SLA alerts |
 | `IC_SA_B64` | `api/ic-interviews.js`, `api/ic-request.js` | Base64-encoded Firebase Admin service account JSON for the IC (Interviewer Community) Firebase project |
 
 Set these at: Vercel Dashboard → ioe-admin-portal project → Settings → Environment Variables.
@@ -114,7 +111,7 @@ Set these at: Vercel Dashboard → ioe-admin-portal project → Settings → Env
 | `team_members` | Portal user registry & roles | `name`, `email`, `team`, `status` (`pending`/`approved`/`rejected`) |
 | `assignments` | Assessment assignment requests | `phase`, `batch`, `week`, `domain`, `subjects[]`, `status`, `links[]`, `alloc[]` (allocated students), `eval{}` (evaluation scores), `requested_by`, `requested_at` |
 | `notifications` | In-app notification log | `type`, `status`, `title`, `message`, `targetTeams[]`, `readBy[]`, `createdAt` |
-| `settings` | Portal-wide config | `emailjs_service_id`, `emailjs_template_id`, `emailjs_escalation_template`, `emailjs_public_key`, `sla_manager_emails`, `sla_escalate_after_hours`, `teams_webhook_url` |
+| `settings` | Portal-wide config | `emailjs_service_id`, `emailjs_template_id`, `emailjs_escalation_template`, `emailjs_public_key`, `sla_manager_emails`, `sla_escalate_after_hours` |
 
 ---
 
@@ -194,7 +191,7 @@ SLA tracking dashboard. For each config, shows a pipeline of stages with deadlin
 - Submission Link Collection
 - Marks Entry
 
-Breach detection runs in `checkAndNotifyBreaches()` — for each breached stage, it creates a `notifications` doc, sends an email via EmailJS, and posts a card to MS Teams via `/api/teams-notify`.
+Breach detection runs in `checkAndNotifyBreaches()` — for each breached stage, it creates a `notifications` doc and sends an email via EmailJS.
 
 Escalation: if a breach is not resolved after N hours (configurable), `recordAndEscalate()` re-notifies with an escalation card.
 
@@ -238,12 +235,6 @@ Proxies student invitation requests to an external assessment API.
 - Body: `{ apiEndpoint, apiToken, candidates: [uid, ...], assessmentId }`
 - Sends in batches of 20, 3 retries per batch with exponential backoff
 - Returns: `{ total, sent, failed, batches[], errors[] }`
-
-### `POST /api/teams-notify`
-Posts an SLA breach card to a Microsoft Teams channel.
-- Body: `{ assessment, stage, team, deadline, detectedAt, portalUrl, isEscalation, hoursPassed }`
-- Requires `TEAMS_WEBHOOK_URL` env var
-- Uses `MessageCard` format (legacy Teams connector, compatible with most webhooks)
 
 ### `GET /api/ic-interviews`
 Reads interview data from the IC Firebase project.
