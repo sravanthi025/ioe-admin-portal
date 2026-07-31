@@ -2411,11 +2411,17 @@ window.publishAssessment = (id, target = "main") => {
       </div>`
     : mainHTML + mockHTML;
 
+  bodyHTML += `<label style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:.82rem;color:var(--text);cursor:pointer">
+    <input type="checkbox" id="publish-confirm-checkbox" style="width:16px;height:16px;cursor:pointer;flex-shrink:0" onchange="document.getElementById('publish-confirm-btn').disabled = !this.checked">
+    I've reviewed the details above and confirm they're correct
+  </label>`;
+
   const modalEl = document.querySelector("#publish-modal .modal");
   if (modalEl) { modalEl.style.width = isBoth ? "920px" : "420px"; modalEl.style.maxWidth = isBoth ? "95vw" : "480px"; }
 
   document.getElementById("publish-modal-body").innerHTML = bodyHTML;
-  document.getElementById("publish-confirm-btn").onclick = () => confirmPublishAssessment(id, target);
+  document.getElementById("publish-confirm-btn").onclick  = () => confirmPublishAssessment(id, target);
+  document.getElementById("publish-confirm-btn").disabled = true;
   document.getElementById("publish-modal").classList.add("open");
 };
 
