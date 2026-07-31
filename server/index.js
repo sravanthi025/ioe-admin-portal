@@ -309,6 +309,9 @@ app.post("/api/publish/run", async (req, res) => {
     } catch (e) {
       broadcast("error", `Publish failed: ${e.message}`);
     } finally {
+      // Topin may rotate session cookies during use — re-save so the next
+      // publish doesn't find a stale session and force another OTP login.
+      await context.storageState({ path: SESSION_FILE }).catch(() => {});
       await context.close().catch(() => {});
       jobRunning = false;
     }

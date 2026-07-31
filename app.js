@@ -5273,15 +5273,23 @@ window.publishToTopin = async (configId, target = "main") => {
 
   connectSSE(serverUrl, onDone, onPending);
 
+  // Track which leg has already been submitted so an OTP-triggered re-run of
+  // runIt() (e.g. Mock succeeds, then Main hits needs_otp) resumes with the
+  // remaining leg instead of re-submitting Mock a second time.
+  let mockSubmitted = false;
+  let mainSubmitted = false;
+
   const runIt = async () => {
-    if (target === "mock" || target === "both") {
+    if ((target === "mock" || target === "both") && !mockSubmitted) {
       const n = await runTopinPublish(serverUrl, c, "mock", params);
-      if (n) return true; // needs OTP — stop here, retry from beginning after auth
+      if (n) return true; // needs OTP — stop here, resume from here after auth
+      mockSubmitted = true;
     }
-    if (target === "main" || target === "both") {
+    if ((target === "main" || target === "both") && !mainSubmitted) {
       if (target === "both") await new Promise(r => setTimeout(r, 2000));
       const n = await runTopinPublish(serverUrl, c, "main", params);
       if (n) return true;
+      mainSubmitted = true;
     }
     return false;
   };
