@@ -66,6 +66,7 @@
           <option value="">Select your team</option>
           <option value="Content Team">Content Team</option>
           <option value="Assessment Ops Team">Assessment Ops Team</option>
+          <option value="Invigilator">Invigilator</option>
           <option value="Instructor">Instructor</option>
           <option value="Admin">Admin</option>
         </select>
@@ -505,6 +506,7 @@
               <option value="">Select team</option>
               <option value="Content Team">Content Team</option>
               <option value="Assessment Ops Team">Assessment Ops Team</option>
+              <option value="Invigilator">Invigilator</option>
               <option value="Instructor">Instructor</option>
               <option value="Admin">Admin</option>
             </select>
@@ -529,6 +531,7 @@
           <option value="">All Teams</option>
           <option value="Content Team">Content Team</option>
           <option value="Assessment Ops Team">Assessment Ops Team</option>
+          <option value="Invigilator">Invigilator</option>
           <option value="Instructor">Instructor</option>
           <option value="Admin">Admin</option>
         </select>
@@ -1095,7 +1098,7 @@
       <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
           <h1>Assignments</h1>
-          <p>Instructor raises requests · Content Team submits document links</p>
+          <p>Invigilator raises requests · Content Team submits document links</p>
         </div>
         <div id="assign-raise-btn-wrap">
           <button class="btn btn-primary" onclick="openRaiseRequestModal()">+ Raise Request</button>
@@ -1286,6 +1289,7 @@
             <select id="role-dl-select" style="font-size:.8rem;padding:5px 10px;border-radius:6px;border:1px solid var(--border);height:32px">
               <option value="">Role Guide...</option>
               <option value="Admin">Admin</option>
+              <option value="Invigilator">Invigilator</option>
               <option value="Content Team">Content Team</option>
               <option value="Assessment Ops Team">Assessment Ops Team</option>
               <option value="Instructor">Instructor</option>
@@ -1301,7 +1305,7 @@
         <div class="about-sec-sub">NxtWave Admin — Intensive Offline Exam (IOE) Admin Portal</div>
         <div class="card" style="margin-top:12px">
           <p style="margin:0 0 10px;font-size:.875rem;color:#475569;line-height:1.8">
-            This is an internal operations tool for managing the complete lifecycle of <strong>Intensive Offline Exam (IOE) project assignments</strong>. It coordinates four teams — Content, Assessment Ops, Instructors, and Admin — through two structured workflows: the <strong>Assignment Evaluation workflow</strong> (request → links → auto-allocation → evaluation → export) and the <strong>SLA Pipeline</strong> (syllabus → config → Topin go-live tracking).
+            This is an internal operations tool for managing the complete lifecycle of <strong>Intensive Offline Exam (IOE) project assignments</strong>. It coordinates five teams — Invigilator, Content, Assessment Ops, Instructors, and Admin — through two structured workflows: the <strong>Assignment Evaluation workflow</strong> (request → links → auto-allocation → evaluation → export) and the <strong>SLA Pipeline</strong> (syllabus → config → Topin go-live tracking).
           </p>
           <p style="margin:0 0 10px;font-size:.875rem;color:#475569;line-height:1.8">
             Access is role-gated — an Admin must approve every new user and assign them a team role before they can use the portal. Each role sees only the pages relevant to their responsibilities.
@@ -1335,9 +1339,9 @@
         <div style="margin-top:14px;margin-bottom:18px">
           <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7c3aed;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:14px;background:#7c3aed;border-radius:2px"></span>Workflow A — Assignment Evaluation</div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <div class="about-step"><div class="about-step-n" style="background:#7c3aed">1</div><div class="about-step-body"><div class="about-step-title">Raise Assignment Request <span class="about-step-who">Instructor</span></div><p class="about-step-desc">Specifies Phase, Batch, Week, number of sets, subjects/topics, and whether a Mock assignment is needed. Notifies Content Team.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#7c3aed">1</div><div class="about-step-body"><div class="about-step-title">Raise Assignment Request <span class="about-step-who">Invigilator</span></div><p class="about-step-desc">Specifies Phase, Batch, Week, number of sets, subjects/topics, and whether a Mock assignment is needed. Notifies Content Team.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#15803d">2</div><div class="about-step-body"><div class="about-step-title">Submit Assignment Links <span class="about-step-who">Content Team</span></div><p class="about-step-desc">Uploads one assignment question document link per set (Set 1, Set 2, …). Submitting triggers automatic student set allocation.</p></div></div>
-            <div class="about-step"><div class="about-step-n" style="background:#0369a1">3</div><div class="about-step-body"><div class="about-step-title">Auto Set Allocation <span class="about-step-who">System (automatic)</span></div><p class="about-step-desc">Students in that Phase+Batch are sorted by UID and distributed round-robin across sets. Instructor can immediately download the allocation CSV.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#0369a1">3</div><div class="about-step-body"><div class="about-step-title">Auto Set Allocation <span class="about-step-who">System (automatic)</span></div><p class="about-step-desc">Students in that Phase+Batch are sorted by UID and distributed round-robin across sets. Invigilator can immediately download the allocation CSV.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#a16207">4</div><div class="about-step-body"><div class="about-step-title">Import Student Submissions <span class="about-step-who">Assessment Ops Team</span></div><p class="about-step-desc">Students submit GitHub and Deployment links via Google Form. Ops imports the CSV — links matched by Candidate UID are saved to each student's record.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#b91c1c">5</div><div class="about-step-body"><div class="about-step-title">Evaluate Students <span class="about-step-who">Instructor</span></div><p class="about-step-desc">Instructor opens each student's scoring form — 10 criteria across 4 sections on a 0–5 scale. Part averages, total (/20), and performance band are auto-calculated. Predefined remark chips speed up feedback.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#475569">6</div><div class="about-step-body"><div class="about-step-title">Export Evaluation CSV <span class="about-step-who">Instructor · Admin</span></div><p class="about-step-desc">Download the complete evaluation CSV — 26 columns matching the Google Sheet format including all criterion scores, averages, total, performance band, and remarks.</p></div></div>
@@ -1348,13 +1352,13 @@
         <div>
           <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#1d4ed8;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:14px;background:#1d4ed8;border-radius:2px"></span>Workflow B — Topin Assessment Publishing &amp; Evaluation</div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <div class="about-step"><div class="about-step-n" style="background:#15803d">1</div><div class="about-step-body"><div class="about-step-title">Submit Syllabus <span class="about-step-who">Instructor</span></div><p class="about-step-desc">Phase, Batch, Week, assessment date, start/end time, subjects, topics, and Mock required flag. Starts the SLA clock. Go to <strong>Syllabus</strong> page.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#15803d">1</div><div class="about-step-body"><div class="about-step-title">Submit Syllabus <span class="about-step-who">Invigilator</span></div><p class="about-step-desc">Phase, Batch, Week, assessment date, start/end time, subjects, topics, and Mock required flag. Starts the SLA clock. Go to <strong>Syllabus</strong> page.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#a16207">2</div><div class="about-step-body"><div class="about-step-title">Submit Mock Config Link <span class="about-step-who">Content Team</span></div><p class="about-step-desc">Topin config URL for the Mock assessment. Go to <strong>Topin Configs</strong> page. Skipped if Mock not required.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#0369a1">3</div><div class="about-step-body"><div class="about-step-title">Publish Mock &amp; Mark Live <span class="about-step-who">Assessment Ops Team</span></div><p class="about-step-desc">Publish the Mock assessment on Topin, then click <strong>Mark Mock Live</strong> on the Assessments page. Timestamps the SLA step. Skipped if Mock not required.</p></div></div>
-            <div class="about-step"><div class="about-step-n" style="background:#7c3aed">4</div><div class="about-step-body"><div class="about-step-title">Students Take Mock Assessment <span class="about-step-who">Students (on assessment date)</span></div><p class="about-step-desc">Students complete the Mock on Topin. Instructor monitors attendance. Results are available on Topin for review. Skipped if Mock not required.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#7c3aed">4</div><div class="about-step-body"><div class="about-step-title">Students Take Mock Assessment <span class="about-step-who">Students (on assessment date)</span></div><p class="about-step-desc">Students complete the Mock on Topin. Invigilator monitors attendance. Results are available on Topin for review. Skipped if Mock not required.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#a16207">5</div><div class="about-step-body"><div class="about-step-title">Submit Main Config Link <span class="about-step-who">Content Team</span></div><p class="about-step-desc">Topin config URL for the Main assessment. Go to <strong>Topin Configs</strong> page. Submitted after the Mock assessment is complete.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#0369a1">6</div><div class="about-step-body"><div class="about-step-title">Publish Main &amp; Mark Live <span class="about-step-who">Assessment Ops Team</span></div><p class="about-step-desc">Publish the Main assessment on Topin, then click <strong>Mark Main Live</strong>. Missed deadline turns the step red on Assessment Details and triggers a breach notification.</p></div></div>
-            <div class="about-step"><div class="about-step-n" style="background:#b91c1c">7</div><div class="about-step-body"><div class="about-step-title">Students Take Main Assessment <span class="about-step-who">Students (on assessment date)</span></div><p class="about-step-desc">Students complete the Main assessment on Topin within the scheduled window (start/end time from Syllabus). Instructor monitors.</p></div></div>
+            <div class="about-step"><div class="about-step-n" style="background:#b91c1c">7</div><div class="about-step-body"><div class="about-step-title">Students Take Main Assessment <span class="about-step-who">Students (on assessment date)</span></div><p class="about-step-desc">Students complete the Main assessment on Topin within the scheduled window (start/end time from Syllabus). Invigilator monitors.</p></div></div>
             <div class="about-step"><div class="about-step-n" style="background:#475569">8</div><div class="about-step-body"><div class="about-step-title">Review Results &amp; Acknowledge Breaches <span class="about-step-who">Admin · Assessment Ops Team</span></div><p class="about-step-desc">Assessment results are available on Topin for review. On <strong>Assessment Details</strong>, acknowledge any SLA breaches with "Mark as Read" to clear the red alert. Full pipeline status (green / amber / red per step) is preserved for reporting.</p></div></div>
           </div>
           <div class="about-note" style="margin-top:10px">Steps 2, 3, and 4 (Mock) are skipped when "Mock Required" is unchecked in the Syllabus. Without Mock the pipeline is: Syllabus → Main Config → Main Live → Students Take Main → Review Results.</div>
@@ -1410,9 +1414,10 @@
           </div>
           <p class="about-pg-desc">The assignment management hub. All teams see the same table — but different action buttons appear based on your role.</p>
           <div class="about-2col">
-            <div class="about-feat"><div class="about-feat-title" style="color:#a16207">Content Team</div><ul class="about-feat-list"><li>You receive a notification when a request is raised</li><li>Rows with "Pending Links" status need your action</li><li>Click <strong>Submit Links</strong> — add one document link per set</li><li>Submitting auto-triggers student allocation and notifies Instructor</li></ul></div>
+            <div class="about-feat"><div class="about-feat-title" style="color:#15803d">Invigilator</div><ul class="about-feat-list"><li>Click <strong>Raise Request</strong> to create an assignment — fill Phase, Batch, Week, sets, subjects, and Mock flag</li><li>Once Content Team submits links, status shows "X students allocated" in green</li><li>Click <strong>Download CSV</strong> to get the set allocation sheet (Name, UID, Email, Set, Link) ready to share with students</li></ul></div>
+            <div class="about-feat"><div class="about-feat-title" style="color:#a16207">Content Team</div><ul class="about-feat-list"><li>You receive a notification when a request is raised</li><li>Rows with "Pending Links" status need your action</li><li>Click <strong>Submit Links</strong> — add one document link per set</li><li>Submitting auto-triggers student allocation and notifies Invigilator + Instructor</li></ul></div>
             <div class="about-feat"><div class="about-feat-title" style="color:#0369a1">Assessment Ops Team</div><ul class="about-feat-list"><li>Click the link count badge to view submitted assignment links</li><li>In the Evaluate modal, click <strong>Import Submissions CSV</strong> to upload Google Form responses</li><li>CSV is matched by Candidate UID — GitHub + Deployment links are saved per student automatically</li></ul></div>
-            <div class="about-feat"><div class="about-feat-title" style="color:#7c3aed">Instructor</div><ul class="about-feat-list"><li>Click <strong>Raise Request</strong> to create an assignment — fill Phase, Batch, Week, sets, subjects, and Mock flag</li><li>Once Content Team submits links, status shows "X students allocated" in green — click <strong>Download CSV</strong> to get the set allocation sheet (Name, UID, Email, Set, Link) ready to share with students</li><li><strong>Evaluate (X/Y)</strong> button shows evaluated vs total students — click it to open the student list and see each student's links and current score</li><li>Click <strong>Evaluate</strong> on any student to open the scoring form. After all students, click <strong>Export Eval CSV</strong> to download the Google Sheet–compatible file</li></ul></div>
+            <div class="about-feat"><div class="about-feat-title" style="color:#7c3aed">Instructor</div><ul class="about-feat-list"><li><strong>Evaluate (X/Y)</strong> button shows evaluated vs total students</li><li>Click it to open the student list — see each student's links and current score</li><li>Click <strong>Evaluate</strong> on any student to open the scoring form</li><li>After all students, click <strong>Export Eval CSV</strong> to download the Google Sheet–compatible file</li></ul></div>
           </div>
           <div style="margin-top:12px">
             <div class="about-feat-title" style="margin-bottom:8px">Assignments table columns</div>
@@ -1435,7 +1440,7 @@
           <div class="about-pg-hdr">
             <div style="display:flex;align-items:center;gap:10px">
               <span class="about-pg-title">Student Data</span>
-              <span class="about-pg-badge" style="background:#dcfce7;color:#15803d;border-color:#bbf7d0">Instructor · Admin</span>
+              <span class="about-pg-badge" style="background:#dcfce7;color:#15803d;border-color:#bbf7d0">Invigilator · Admin</span>
             </div>
             <code class="about-pg-tag">students</code>
           </div>
@@ -1452,11 +1457,11 @@
           <div class="about-pg-hdr">
             <div style="display:flex;align-items:center;gap:10px">
               <span class="about-pg-title">Syllabus</span>
-              <span class="about-pg-badge" style="background:#dcfce7;color:#15803d;border-color:#bbf7d0">Instructor · Content Team · Admin</span>
+              <span class="about-pg-badge" style="background:#dcfce7;color:#15803d;border-color:#bbf7d0">Invigilator · Content Team · Admin</span>
             </div>
             <code class="about-pg-tag">syllabus</code>
           </div>
-          <p class="about-pg-desc">The starting point of the SLA pipeline. Instructor submits the weekly syllabus for each Phase/Batch/Week. Every assessment on Topin begins here — submitting a syllabus starts the SLA clock.</p>
+          <p class="about-pg-desc">The starting point of the SLA pipeline. Invigilator submits the weekly syllabus for each Phase/Batch/Week. Every assessment on Topin begins here — submitting a syllabus starts the SLA clock.</p>
           <div class="about-2col">
             <div class="about-feat"><div class="about-feat-title">Add Syllabus</div><p>Fill in Phase, Batch, Week, subjects and topics, assessment date, start/end time, and whether a Mock assessment is required. The Mock flag controls whether the 5-step or 3-step SLA pipeline is shown.</p></div>
             <div class="about-feat"><div class="about-feat-title">SLA Clock Starts Here</div><p>The moment a syllabus is submitted, the SLA timer begins. Content Team is expected to submit config links within the configured SLA window. Editing an existing syllabus updates the downstream records.</p></div>
@@ -1494,7 +1499,7 @@
           <div class="about-2col">
             <div class="about-feat"><div class="about-feat-title">Mark Mock / Main Live</div><p>Click <strong>Mark Mock Live</strong> or <strong>Mark Main Live</strong> once published on Topin. Timestamp recorded immediately — SLA step on Assessment Details turns green (on time) or amber (late).</p></div>
             <div class="about-feat"><div class="about-feat-title">Pending Assessments View</div><p>All assessments awaiting go-live are listed here, sorted by date. Missed deadlines appear as red breach rows and trigger notifications to all roles.</p></div>
-            <div class="about-feat"><div class="about-feat-title">Post-Live: Students Take Assessment</div><p>Once marked Live, students complete the assessment on Topin within the scheduled window (date + start/end time from Syllabus). Instructor monitors attendance on the day.</p></div>
+            <div class="about-feat"><div class="about-feat-title">Post-Live: Students Take Assessment</div><p>Once marked Live, students complete the assessment on Topin within the scheduled window (date + start/end time from Syllabus). Invigilator monitors attendance on the day.</p></div>
             <div class="about-feat"><div class="about-feat-title">Review Results on Topin</div><p>After students complete the assessment, results and scores are available directly on the Topin platform. Go to Assessment Details in this portal to acknowledge any SLA breaches with "Mark as Read" to close the alert.</p></div>
           </div>
           <div class="about-note">Always mark Live here immediately after publishing on Topin — the SLA breach timer runs from the moment the config link was submitted. Delayed marking inflates breach counts on Assessment Details.</div>
@@ -1560,9 +1565,10 @@
             <thead><tr><th>Role</th><th>Pages</th><th>Primary responsibility</th></tr></thead>
             <tbody>
               <tr><td><span class="about-role-tag" style="background:#fee2e2;color:#b91c1c;border-color:#fca5a5">Admin</span></td><td>All pages</td><td>Oversight, team approvals, data export, full CRUD access</td></tr>
+              <tr><td><span class="about-role-tag" style="background:#dcfce7;color:#15803d;border-color:#bbf7d0">Invigilator</span></td><td>Dashboard, Assessment Details, Assignments</td><td>Raise assignment requests, download allocation CSV, share with students</td></tr>
               <tr><td><span class="about-role-tag" style="background:#fef9c3;color:#a16207;border-color:#fde68a">Content Team</span></td><td>Dashboard, Assessment Details, Assignments</td><td>Submit assignment question document links for each set</td></tr>
               <tr><td><span class="about-role-tag" style="background:#e0f2fe;color:#0369a1;border-color:#bae6fd">Assessment Ops Team</span></td><td>Dashboard, Assessment Details, Assignments</td><td>Import student submission CSVs (GitHub + Deployment links)</td></tr>
-              <tr><td><span class="about-role-tag" style="background:#ede9fe;color:#7c3aed;border-color:#c4b5fd">Instructor</span></td><td>Dashboard, Student Data, Syllabus, Assessment Details, Assignments</td><td>Submit syllabus, raise assignment requests, download allocation CSV, evaluate students using the scoring form, export evaluation CSV</td></tr>
+              <tr><td><span class="about-role-tag" style="background:#ede9fe;color:#7c3aed;border-color:#c4b5fd">Instructor</span></td><td>Dashboard, Assessment Details, Assignments</td><td>Evaluate students using the scoring form, export evaluation CSV</td></tr>
             </tbody>
           </table>
         </div>
@@ -1577,7 +1583,7 @@
           <div class="about-feat"><div class="about-feat-title">Set Allocation (Round-Robin)</div><p>Students sorted by UID are distributed cyclically across sets: student 1 → Set 1, student 2 → Set 2, … student N+1 → Set 1 again. Triggered automatically the moment Content Team submits links. Ensures even distribution.</p></div>
           <div class="about-feat"><div class="about-feat-title">SLA Pipeline</div><p>Five-step (or three-step without Mock) workflow for Topin assessment publishing. Each step has a configured deadline. Missing a deadline triggers a red breach notification visible to all roles on Assessment Details.</p></div>
           <div class="about-feat"><div class="about-feat-title">Performance Band</div><p>Auto-calculated from total score: ≥17 Exceptional (Strong Hire) · ≥14 Strong (Hire) · ≥11 Competent (Hire with Reservations) · ≥8 Borderline (Conditional) · &lt;8 Significantly Below (Do Not Hire).</p></div>
-          <div class="about-feat"><div class="about-feat-title">Notifications</div><p>Bell icon in the top bar shows unread count. Triggers: assignment request raised → notifies Content Team + Admin. Links submitted → notifies Instructor + Ops + Admin. Notification panel shows timestamp and context.</p></div>
+          <div class="about-feat"><div class="about-feat-title">Notifications</div><p>Bell icon in the top bar shows unread count. Triggers: assignment request raised → notifies Content Team + Admin. Links submitted → notifies Invigilator + Ops + Instructor + Admin. Notification panel shows timestamp and context.</p></div>
           <div class="about-feat"><div class="about-feat-title">Evaluation CSV Export</div><p>26-column format matching the Google Sheet exactly: 8 Assignment Detail columns, 4×Part1, 4×Part2, 2×Part3, 4×Part4, Bonus, Total, Performance Band, Remarks. Scores exported as "N : Label" (e.g., "4 : Strong implementation").</p></div>
         </div>
       </div>
@@ -1606,6 +1612,33 @@
         </div>
       </div>
 
+      <div class="role-guide" data-role="Invigilator" id="rg-OG">
+        <div class="rg-header" style="background:#166534">
+          <div class="rg-label">Role Guide</div>
+          <div class="rg-name">Invigilator</div>
+          <div class="rg-sub">Syllabus submission · Assignment requests · Set allocation download</div>
+        </div>
+        <div class="card">
+          <h3 class="rg-sec">Pages you can access</h3>
+          <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Student Data · Syllabus · Assignments · Assessment Details · About</p>
+          <h3 class="rg-sec">SLA workflow — your steps</h3>
+          <ol class="rg-list rg-ol">
+            <li>Go to <strong>Student Data</strong> and upload the student roster for your Phase/Batch before the assessment week</li>
+            <li>Go to <strong>Syllabus</strong> and click <strong>Add Syllabus</strong> — fill Phase, Batch, Week, subjects/topics, assessment date, start/end time, and check "Mock Required" if applicable. This starts the SLA clock</li>
+            <li>Check <strong>Assessment Details</strong> to track SLA status — green steps are on time, red means a breach</li>
+          </ol>
+          <h3 class="rg-sec" style="margin-top:14px">Assignment workflow — your steps</h3>
+          <ol class="rg-list rg-ol">
+            <li>Go to <strong>Assignments</strong> and click <strong>Raise Request</strong> — fill Phase, Batch, Week, number of sets, subjects/topics, and Mock flag</li>
+            <li>Content Team will be notified. Status shows "Pending Links" until they respond</li>
+            <li>Once Content Team submits links, status updates to "X students allocated" — students have been auto-assigned to sets</li>
+            <li>Click <strong>Download CSV</strong> to get the allocation sheet: Student Name, UID, Student ID, Email, Allocated Set, Assignment Link</li>
+            <li>Share assignment links with students via WebEngage or directly</li>
+          </ol>
+          <div class="about-note" style="margin-top:12px"><strong>Tip:</strong> Student data must be uploaded before assignment links are submitted — the system pulls students from that page for set allocation.</div>
+        </div>
+      </div>
+
       <div class="role-guide" data-role="Content Team" id="rg-CT">
         <div class="rg-header" style="background:#a16207">
           <div class="rg-label">Role Guide</div>
@@ -1617,17 +1650,17 @@
           <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Syllabus (view) · Topin Configs · Assignments · Assessment Details · About</p>
           <h3 class="rg-sec">SLA workflow — your steps</h3>
           <ol class="rg-list rg-ol">
-            <li>Once Instructor submits a syllabus, go to <strong>Topin Configs</strong></li>
+            <li>Once Invigilator submits a syllabus, go to <strong>Topin Configs</strong></li>
             <li>Find the Phase/Batch/Week entry and click <strong>Add Config</strong></li>
             <li>Submit the Mock Config URL first (if Mock Required), then the Main Config URL — each submission timestamps the SLA pipeline step</li>
             <li>Check <strong>Assessment Details</strong> to confirm the steps turned green</li>
           </ol>
           <h3 class="rg-sec" style="margin-top:14px">Assignment workflow — your steps</h3>
           <ol class="rg-list rg-ol">
-            <li>You receive a notification when Instructor raises an assignment request</li>
+            <li>You receive a notification when Invigilator raises an assignment request</li>
             <li>Go to <strong>Assignments</strong> — rows with status "Pending Links" need your action</li>
             <li>Click <strong>Submit Links</strong> — enter a label and URL for each set (e.g., Set 1 → Google Doc link)</li>
-            <li>Click <strong>Save Links</strong> — this triggers student set allocation automatically and notifies Instructor and Assessment Ops</li>
+            <li>Click <strong>Save Links</strong> — this triggers student set allocation automatically and notifies Invigilator, Assessment Ops, and Instructors</li>
           </ol>
           <div class="about-note" style="margin-top:12px"><strong>Important:</strong> Submit config links as soon as possible after the syllabus is received — the SLA breach timer is running from the moment the syllabus was submitted.</div>
         </div>
@@ -1664,27 +1697,24 @@
         <div class="rg-header" style="background:#7c3aed">
           <div class="rg-label">Role Guide</div>
           <div class="rg-name">Instructor</div>
-          <div class="rg-sub">Syllabus submission · Assignment requests · Set allocation download · Student evaluation</div>
+          <div class="rg-sub">Student evaluation · CSV export</div>
         </div>
         <div class="card">
           <h3 class="rg-sec">Pages you can access</h3>
-          <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Student Data · Syllabus · Assignments · Assessment Details · About</p>
-          <h3 class="rg-sec">SLA workflow — your steps</h3>
+          <p style="font-size:.82rem;color:#64748b;margin:0 0 12px">Dashboard · Assignments · Assessment Details · About</p>
+          <h3 class="rg-sec">Your step-by-step workflow</h3>
           <ol class="rg-list rg-ol">
-            <li>Go to <strong>Student Data</strong> and upload the student roster for your Phase/Batch before the assessment week</li>
-            <li>Go to <strong>Syllabus</strong> and click <strong>Add Syllabus</strong> — fill Phase, Batch, Week, subjects/topics, assessment date, start/end time, and check "Mock Required" if applicable. This starts the SLA clock</li>
-            <li>Check <strong>Assessment Details</strong> to track SLA status — green steps are on time, red means a breach</li>
+            <li>You receive a notification when assignment links are submitted and students are allocated</li>
+            <li>Go to <strong>Assignments</strong> — rows show <strong>Evaluate (X/Y)</strong> where X = evaluated so far, Y = total allocated</li>
+            <li>Click <strong>Evaluate</strong> to open the student list — each row shows Name, UID, Set, submission links (Deploy ↗ / Git ↗), and current score if already evaluated</li>
+            <li>Click <strong>Evaluate</strong> on any student to open the scoring form. The <strong>Assignment Details</strong> card at the top shows Batch, Week, Set, and the Question Link for reference</li>
+            <li>Verify the student's Deployment and GitHub links are pre-filled (imported by Ops). Update them if missing</li>
+            <li>Score each of the 10 criteria using the 0–5 buttons — part averages, total (/20), and performance band update in real time</li>
+            <li>Click remark chips to quickly add common observations, or type custom remarks in the text box</li>
+            <li>Click <strong>Save Evaluation</strong> — the score and band appear in the student list immediately</li>
+            <li>Repeat for all students. Click <strong>Export Eval CSV</strong> to download the complete evaluation in Google Sheet format (26 columns)</li>
           </ol>
-          <h3 class="rg-sec" style="margin-top:14px">Assignment workflow — your steps</h3>
-          <ol class="rg-list rg-ol">
-            <li>Go to <strong>Assignments</strong> and click <strong>Raise Request</strong> — fill Phase, Batch, Week, number of sets, subjects/topics, and Mock flag. Content Team is notified; status shows "Pending Links" until they respond</li>
-            <li>Once Content Team submits links, status updates to "X students allocated" — students have been auto-assigned to sets. Click <strong>Download CSV</strong> to get the allocation sheet (Name, UID, Email, Set, Link) and share it with students</li>
-            <li>The row also shows <strong>Evaluate (X/Y)</strong> where X = evaluated so far, Y = total allocated. Click <strong>Evaluate</strong> to open the student list — each row shows Name, UID, Set, submission links (Deploy ↗ / Git ↗), and current score if already evaluated</li>
-            <li>Click <strong>Evaluate</strong> on any student to open the scoring form. The <strong>Assignment Details</strong> card at the top shows Batch, Week, Set, and the Question Link for reference. Verify the student's Deployment and GitHub links are pre-filled (imported by Ops) — update them if missing</li>
-            <li>Score each of the 10 criteria using the 0–5 buttons — part averages, total (/20), and performance band update in real time. Click remark chips to quickly add common observations, or type custom remarks</li>
-            <li>Click <strong>Save Evaluation</strong> — the score and band appear in the student list immediately. Repeat for all students, then click <strong>Export Eval CSV</strong> to download the complete evaluation in Google Sheet format (26 columns)</li>
-          </ol>
-          <div class="about-note" style="margin-top:12px"><strong>All 10 criteria must be scored before saving.</strong> Score guide: 0 = Broken · 1 = Very weak · 2 = Partial · 3 = Minimum · 4 = Strong · 5 = Excellent. Student data must be uploaded before assignment links are submitted — the system pulls students from that page for set allocation.</div>
+          <div class="about-note" style="margin-top:12px"><strong>All 10 criteria must be scored before saving.</strong> Score guide: 0 = Broken · 1 = Very weak · 2 = Partial · 3 = Minimum · 4 = Strong · 5 = Excellent. The score legend is also shown at the top of the scoring form.</div>
         </div>
       </div>
 
@@ -1705,6 +1735,7 @@
       <option value="Admin">Admin</option>
       <option value="Content Team">Content Team</option>
       <option value="Assessment Ops Team">Assessment Ops Team</option>
+      <option value="Invigilator">Invigilator</option>
       <option value="Instructor">Instructor</option>
     </select>
     <div class="modal-footer">
@@ -2072,7 +2103,7 @@
 <div class="modal-backdrop" id="submit-links-modal">
   <div class="modal" style="max-width:600px">
     <h3 id="sl-title">Submit Assignment Links</h3>
-    <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">Add one or more document links. Use clear labels so Instructor knows which set is which.</p>
+    <p style="color:var(--muted);font-size:.84rem;margin-bottom:16px">Add one or more document links. Use clear labels so Invigilator knows which set is which.</p>
 
     <div id="sl-links-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
 
