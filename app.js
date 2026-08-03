@@ -237,10 +237,9 @@ function applyRoleAccess(team) {
   const access = {
     "admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews","teams"],
     "Admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews","teams"],
-    "Invigilator":      ["dashboard","students","syllabus","assessment-details","assignments","interviews"],
     "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments","interviews"],
     "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments","interviews"],
-    "Instructor":          ["dashboard","assignments","interviews"],
+    "Instructor":          ["dashboard","students","syllabus","assessment-details","assignments","interviews"],
     "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews"],
   };
   const allowed = access[team] || access["admin"];
@@ -890,17 +889,18 @@ window.clearFetchPreview = () => {
 };
 
 // ── TEAM APPROVALS ────────────────────────────────────────────
-// One-time cleanup: the "On Ground Team" role was renamed to "Invigilator".
+// One-time cleanup: the "On Ground Team" role was renamed to "Invigilator",
+// then the "Invigilator" role was merged into "Instructor".
 // Runs (harmlessly, as a no-op) each time an Admin opens Teams, migrating
-// any members still holding the old value using the Admin's own write
+// any members still holding an old value using the Admin's own write
 // permissions — no separate backfill script/deploy needed.
 async function migrateOnGroundTeamRole(docs) {
-  const stale = docs.filter(d => d.team === "On Ground Team");
+  const stale = docs.filter(d => d.team === "On Ground Team" || d.team === "Invigilator");
   if (!stale.length) return false;
   const batch = writeBatch(db);
-  stale.forEach(d => batch.update(doc(db, "team_members", d._id), { team: "Invigilator" }));
+  stale.forEach(d => batch.update(doc(db, "team_members", d._id), { team: "Instructor" }));
   await batch.commit();
-  stale.forEach(d => { d.team = "Invigilator"; });
+  stale.forEach(d => { d.team = "Instructor"; });
   return true;
 }
 
@@ -978,7 +978,7 @@ window.openEditMember = (id) => {
   editingMemberId = id;
   document.getElementById("edit-member-meta").textContent = m.email || "";
   document.getElementById("edit-member-name").value = m.name || "";
-  document.getElementById("edit-member-team").value = m.team || "Invigilator";
+  document.getElementById("edit-member-team").value = m.team || "Instructor";
   document.getElementById("edit-member-modal").classList.add("open");
 };
 
@@ -2753,14 +2753,14 @@ function fmtDate(str) {
 async function createNotification(type, status, title, message) {
   const targetMap = {
     "registration":       ["Admin"],
-    "student_data":       ["Invigilator", "Assessment Ops Team", "Content Team"],
-    "syllabus":           ["Content Team", "Assessment Ops Team", "Invigilator"],
-    "assessment":         ["Invigilator", "Content Team", "Assessment Ops Team"],
+    "student_data":       ["Instructor", "Assessment Ops Team", "Content Team"],
+    "syllabus":           ["Content Team", "Assessment Ops Team", "Instructor"],
+    "assessment":         ["Instructor", "Content Team", "Assessment Ops Team"],
     "config_request":     ["Content Team"],
     "config":             ["Assessment Ops Team"],
-    "sla":                ["Admin", "Invigilator", "Content Team", "Assessment Ops Team"],
+    "sla":                ["Admin", "Instructor", "Content Team", "Assessment Ops Team"],
     "assignment_request": ["Content Team", "Admin"],
-    "assignment_links":   ["Invigilator", "Assessment Ops Team", "Instructor", "Admin"],
+    "assignment_links":   ["Instructor", "Assessment Ops Team", "Admin"],
   };
   try {
     await addDoc(collection(db, "notifications"), {
@@ -3530,7 +3530,7 @@ window.markAllBreachesRead = async () => {
 // ── SLA BREACH DETECTION & NOTIFICATION ───────────────────────
 
 const SLA_STEPS = [
-  { key: "syllabus",     label: "Syllabus Submission",   team: "Invigilator",     dlKey: "syllabus",     compFn: c => c.syllabus_submitted_at || c.createdAt },
+  { key: "syllabus",     label: "Syllabus Submission",   team: "Instructor",     dlKey: "syllabus",     compFn: c => c.syllabus_submitted_at || c.createdAt },
   { key: "mock_config",  label: "Mock Config Link",      team: "Content Team",       dlKey: "mock_config",  compFn: c => c.mock_config_link_submitted_at, mockOnly: true },
   { key: "mock_publish", label: "Mock Assessment Live",  team: "Assessment Ops Team",dlKey: "mock_publish", compFn: c => c.published_at, mockOnly: true },
   { key: "main_config",  label: "Main Config Link",      team: "Content Team",       dlKey: "main_config",  compFn: c => c.config_link_submitted_at || (c.config_link ? c.submittedAt : null) },
@@ -3812,7 +3812,7 @@ window.testSLAEscalationEmail = async () => {
         to_name:          "Manager",
         assessment:       "P1-B1-W1 (Test)",
         sla_step:         "Syllabus Submission",
-        responsible_team: "Invigilator",
+        responsible_team: "Instructor",
         deadline:         "Monday, 23 Jun 2026, 06:30 PM",
         hours_overdue:    `${_emailjsConfig.escalateAfterHours} hours`,
         breach_time:      new Date().toLocaleString("en-IN"),
@@ -3882,7 +3882,7 @@ async function loadAssignments() {
     // Show/hide "Raise Request" button based on role
     const wrap = document.getElementById("assign-raise-btn-wrap");
     if (wrap) {
-      const canRaise = !isGuest && ["Invigilator","admin","Admin"].includes(currentUserTeam);
+      const canRaise = !isGuest && ["Instructor","admin","Admin"].includes(currentUserTeam);
       wrap.style.display = canRaise ? "" : "none";
     }
   } catch(e) {
@@ -4171,7 +4171,6 @@ function renderAssignmentsTable() {
 
   const isAdmin      = currentUserTeam === "admin" || currentUserTeam === "Admin";
   const isContent    = currentUserTeam === "Content Team";
-  const isOnGround   = currentUserTeam === "Invigilator";
   const isInstructor = currentUserTeam === "Instructor";
 
   tbody.innerHTML = data.map((a, i) => {
@@ -4203,8 +4202,6 @@ function renderAssignmentsTable() {
         primaryBtn = `<button class="btn btn-sm am-primary-eval" onclick="openEvalListModal('${a._id}')">${lbl}</button>`;
       } else if (isContent || isAdmin) {
         primaryBtn = `<button class="btn btn-primary btn-sm" style="font-size:.75rem;white-space:nowrap" onclick="openSubmitLinksModal('${a._id}')">${linkCount > 0 ? "Edit Links" : "Submit Links"}</button>`;
-      } else if ((isOnGround) && allocCount > 0) {
-        primaryBtn = `<button class="btn btn-outline btn-sm" style="font-size:.75rem;white-space:nowrap" onclick="downloadAllocationCSV('${a._id}')">↓ CSV</button>`;
       }
     } else if (allocCount > 0) {
       const lbl = evalDone > 0 ? `View Eval (${evalDone}/${allocCount})` : `View Students`;
@@ -4220,7 +4217,7 @@ function renderAssignmentsTable() {
       if (linkCount > 0) {
         menuItems.push(`<button class="am-item" onclick="closeAM();openViewLinksModal('${a._id}')">View Links</button>`);
       }
-      if (isOnGround || isAdmin) {
+      if (isInstructor || isAdmin) {
         menuItems.push(allocCount > 0
           ? `<button class="am-item" onclick="closeAM();downloadAllocationCSV('${a._id}')">↓ Download CSV</button>`
           : `<button class="am-item" style="opacity:.4;pointer-events:none" disabled>↓ Download CSV</button>`);
