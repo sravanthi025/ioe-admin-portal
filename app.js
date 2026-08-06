@@ -237,9 +237,9 @@ function applyRoleAccess(team) {
   const access = {
     "admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews","teams"],
     "Admin":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews","teams"],
-    "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments","interviews"],
+    "Content Team":        ["dashboard","syllabus","configs","assessment-details","assignments"],
     "Assessment Ops Team": ["dashboard","students","assessments","assessment-details","assignments","interviews"],
-    "Instructor":          ["dashboard","students","syllabus","assessment-details","assignments","interviews"],
+    "Instructor":          ["dashboard","students","syllabus","assessments","assessment-details","assignments","interviews"],
     "Guest":               ["dashboard","students","syllabus","configs","assessments","assessment-details","assignments","interviews"],
   };
   const allowed = access[team] || access["admin"];
@@ -2286,7 +2286,10 @@ function renderAssessmentsTable() {
       ? `<span style="font-size:.7rem;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:10px;padding:2px 8px;font-weight:600;white-space:nowrap">✓ Invites Sent</span>`
       : `<span style="font-size:.7rem;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:2px 8px;white-space:nowrap">Invites Pending</span>`;
 
-    const actions = isGuest
+    // Instructors get visibility into Assessments (status, links, invite state)
+    // but not the Publish/Invite/Mark Sent/Unpublish actions -- same read-only
+    // rendering already used for Guest.
+    const actions = (isGuest || currentUserTeam === "Instructor")
       ? (c.status === "published"
           ? `${publishedInfo}${inviteChip}`
           : `<span style="font-size:.75rem;color:var(--muted)">${c.status === "submitted" ? "Ready to publish" : "—"}</span>`)

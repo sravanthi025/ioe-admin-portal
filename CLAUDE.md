@@ -124,7 +124,7 @@ Users register via the portal and are approved/rejected by Admin. Role is stored
 | **Admin** | All pages | Full CRUD everywhere, approve/reject team members, delete records, manage SLA settings |
 | **Content Team** | Syllabus, Configs, Assignments | Add/edit syllabus, submit Topin config links, edit assignment links |
 | **Assessment Ops Team** | Students, Assessments, Assessment Details, Assignments | Upload students, publish assessments, allocate students to assignments, download CSV |
-| **Instructor** | Students, Syllabus, Assessment Details, Assignments | Submit syllabus, raise assignment requests, download allocation CSV for on-ground distribution, evaluate students, view/import submission links |
+| **Instructor** | Students, Syllabus, Assessments (read-only), Assessment Details, Assignments | Submit syllabus, raise assignment requests, download allocation CSV for on-ground distribution, evaluate students, view/import submission links |
 | **Guest** | Read-only everything | No login required — anonymous Firebase auth via "Continue as Guest" |
 
 Role is applied in `applyRoleAccess(team)` in `app.js` which shows/hides nav items and disables action buttons via CSS classes. Guest mode uses `signInAnonymously(auth)` and sets `isGuest = true`.
